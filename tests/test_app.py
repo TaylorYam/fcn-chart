@@ -17,11 +17,12 @@ def client(monkeypatch):
         return PriceHistory(
             symbol=symbol,
             name="Sony Group Corporation",
+            exchange="TSE",
             currency="JPY",
             timezone="Asia/Tokyo",
             candles=[
-                Candle("2026-10-01", 3700, 3760, 3690, 3720),
-                Candle("2026-10-02", 3722, 3770, 3710, 3753),
+                Candle("2026-10-01", 3700, 3760, 3690, 3720, 1_200_000),
+                Candle("2026-10-02", 3722, 3770, 3710, 3753, 1_500_000),
             ],
         )
 
@@ -44,7 +45,8 @@ def test_chart_returns_levels_from_last_close(client):
         ("K", 3002),
         ("KI", 2627),
     ]
-    assert len(body["candles"]) == 2
+    assert body["exchange"] == "TSE"
+    assert body["candles"][-1]["volume"] == 1_500_000
 
 
 def test_chart_omits_blank_levels(client):

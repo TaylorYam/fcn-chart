@@ -96,11 +96,28 @@ main {
   gap: 16px;
   margin-bottom: 8px;
 }
-.card-head .ticker { font-size: 18px; margin-right: 8px; }
-.card-head .name { color: var(--muted); }
+.card-head .ticker { font-size: 18px; }
 .card-head .ref { font-weight: 600; white-space: nowrap; }
 
-.chart { width: 100%; aspect-ratio: 16 / 7.5; }
+/* 圖表與匯出圖同為 16:9 */
+.chart-wrap { position: relative; }
+.chart { width: 100%; aspect-ratio: 16 / 9; }
+
+/* TradingView 左上角圖例 */
+.legend {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  z-index: 4;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif;
+  font-size: 13px;
+  color: #131722;
+}
+.legend-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; line-height: 22px; }
+.legend-row span { display: inline-flex; gap: 2px; }
+.legend-row b { font-weight: 400; color: var(--legend-color); }
+.legend-title { font-weight: 500; margin-right: 2px; }
 
 .card-foot {
   display: flex;
@@ -111,8 +128,7 @@ main {
 .ranges { display: flex; gap: 4px; }
 .ranges button { height: 28px; padding: 0 10px; font-size: 12px; }
 .ranges button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.source { flex: 1; font-size: 12px; color: var(--muted); }
-.actions { display: flex; gap: 8px; }
+.actions { display: flex; gap: 8px; margin-left: auto; }
 
 .status { margin: 8px 0 0; font-size: 12px; color: var(--muted); min-height: 1em; }
 .status.error { color: var(--danger); }

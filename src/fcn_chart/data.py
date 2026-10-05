@@ -14,6 +14,19 @@ MARKET_CLOSE = {
 }
 SETTLE_BUFFER = timedelta(minutes=20)
 
+# Yahoo 交易所代碼 → TradingView 顯示的交易所名稱（圖例用）。
+EXCHANGE_NAMES = {
+    "NYQ": "NYSE",
+    "NMS": "NASDAQ",
+    "NGM": "NASDAQ",
+    "NCM": "NASDAQ",
+    "NAS": "NASDAQ",
+    "ASE": "AMEX",
+    "PCX": "AMEX",
+    "BTS": "CBOE",
+    "JPX": "TSE",
+}
+
 # 抓略多於 1 年，確保「1Y」區間有完整約 252 根K棒。
 HISTORY_DAYS = 400
 
@@ -29,12 +42,14 @@ class Candle:
     high: float
     low: float
     close: float
+    volume: float
 
 
 @dataclass(frozen=True)
 class PriceHistory:
     symbol: str
     name: str
+    exchange: str
     currency: str
     timezone: str
     candles: list[Candle]
@@ -71,6 +86,7 @@ def to_candles(df: pd.DataFrame) -> list[Candle]:
             high=float(row["High"]),
             low=float(row["Low"]),
             close=float(row["Close"]),
+            volume=_volume(row.get("Volume")),
         )
         for idx, row in df.iterrows()
     ]
@@ -93,10 +109,20 @@ def fetch_history(symbol: str, now: datetime | None = None) -> PriceHistory:
     return PriceHistory(
         symbol=symbol,
         name=_display_name(ticker, symbol),
+        exchange=exchange_name(_fast_info(ticker, "exchange", "")),
         currency=_fast_info(ticker, "currency", "USD").upper(),
         timezone=timezone,
         candles=candles,
     )
+
+
+def _volume(value) -> float:
+    # 成交量偶爾是 NaN；NaN 不能放進 JSON。
+    return float(value) if pd.notna(value) else 0.0
+
+
+def exchange_name(code: str) -> str:
+    return EXCHANGE_NAMES.get(code.upper(), code.upper())
 
 
 def _fast_info(ticker: yf.Ticker, key: str, default: str) -> str:

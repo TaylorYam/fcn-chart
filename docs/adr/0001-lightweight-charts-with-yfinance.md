@@ -11,7 +11,8 @@
 
 - 資料：以 yfinance（Yahoo Finance）抓日K，`auto_adjust=False`（只還原分割、不還原股息，等同 TradingView 預設顯示）。
 - 作圖：前端使用開源的 TradingView Lightweight Charts v4.2.2，以 `createPriceLine` 畫水平線、`takeScreenshot` 匯出圖片。做法沿用 `TaylorYam/Huda-taiwan-market-quant` 的K線設定。
-- 關閉圖上的 TV logo（`attributionLogo: false`），改在畫面與匯出圖註腳標示「資料來源：Yahoo Finance｜Chart: TradingView Lightweight Charts」，滿足 Apache 2.0 attribution 並避免誤認資料來自 TradingView。
+- 版面樣式比照 TradingView 網站預設淺色主題：TV 配色（漲 `#089981`／跌 `#F23645`）、左上角 OHLC 圖例、成交量、左下角 TV logo。
+- 保留 TV logo（`attributionLogo: true`）作為 Lightweight Charts 的 Apache 2.0 attribution；不另加資料來源註腳（使用者決定）。
 
 ## Alternatives considered
 
@@ -23,5 +24,6 @@
 ## Consequences
 
 - 不需 TradingView 帳號，不連 tradingview.com。
+- 圖上只有 TV logo、沒有標示資料來源，看圖者可能以為資料來自 TradingView；需要時由簡報本身註明來源。
 - 資料準確度取決於 Yahoo Finance；Yahoo 條款為個人用途，若要放進正式對客戶簡報需確認法遵要求。資料層集中在 `src/fcn_chart/data.py`，日後可換成授權資料源。
 - 前端從 CDN 載入 Lightweight Charts 與 JSZip，需要網路連線。

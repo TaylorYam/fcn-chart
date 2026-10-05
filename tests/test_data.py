@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from fcn_chart.data import drop_unfinished_bar, to_candles
+from fcn_chart.data import drop_unfinished_bar, exchange_name, to_candles
 
 NY = "America/New_York"
 TOKYO = "Asia/Tokyo"
@@ -13,7 +13,13 @@ def make_df(dates, tz):
     index = pd.DatetimeIndex([pd.Timestamp(d, tz=tz) for d in dates])
     n = len(dates)
     return pd.DataFrame(
-        {"Open": [1.0] * n, "High": [2.0] * n, "Low": [0.5] * n, "Close": range(10, 10 + n)},
+        {
+            "Open": [1.0] * n,
+            "High": [2.0] * n,
+            "Low": [0.5] * n,
+            "Close": range(10, 10 + n),
+            "Volume": [1000.0] * n,
+        },
         index=index,
     )
 
@@ -58,3 +64,16 @@ def test_to_candles_formats_dates_and_skips_nan():
     df.loc[df.index[0], "Open"] = float("nan")
     candles = to_candles(df)
     assert [(c.time, c.close) for c in candles] == [("2026-10-02", 11.0)]
+
+
+def test_to_candles_nan_volume_becomes_zero():
+    df = make_df(["2026-10-01"], NY)
+    df.loc[df.index[0], "Volume"] = float("nan")
+    assert to_candles(df)[0].volume == 0.0
+
+
+def test_exchange_name_maps_yahoo_codes_to_tradingview():
+    assert exchange_name("NYQ") == "NYSE"
+    assert exchange_name("NMS") == "NASDAQ"
+    assert exchange_name("JPX") == "TSE"
+    assert exchange_name("xyz") == "XYZ"

@@ -9,7 +9,7 @@ FCN 標的快速作圖：輸入標的代號與 KO/K/KI 百分比，在 TradingVi
    - 美股：`TSM`、`NVDA`、`BRK.B`
    - 日股：4 碼代號 `6758`（自動視為東證 `6758.T`）
 3. 輸入 KO / K / KI 百分比（預設 100 / 80 / 70）。留空就不畫該線。
-4. 按「產生圖表」。每張圖可切換 1M / 3M / 6M / 1Y，再按「下載 PNG」或「複製圖片」（到 PPT 按 Ctrl+V），或在上方按「全部下載（zip）」。
+4. 按「產生圖表」。每張圖可切換 1M / 3M / 6M / YTD / 1Y，再按「下載 PNG」或「複製圖片」（到 PPT 按 Ctrl+V），或在上方按「全部下載（zip）」。
 
 ### 計算規則
 
@@ -19,7 +19,7 @@ FCN 標的快速作圖：輸入標的代號與 KO/K/KI 百分比，在 TradingVi
 
 ### 資料來源
 
-行情來自 Yahoo Finance（透過 yfinance），圖表使用開源的 TradingView Lightweight Charts，不需要 TradingView 帳號。圖上註腳會標示兩者。Yahoo 資料條款為個人用途，用於正式對客戶文件前請確認法遵要求。詳見 [ADR 0001](docs/adr/0001-lightweight-charts-with-yfinance.md)。
+行情來自 Yahoo Finance（透過 yfinance），圖表使用開源的 TradingView Lightweight Charts，版面比照 TradingView 網站預設淺色主題，不需要 TradingView 帳號。圖上不標示資料來源，需要時請在簡報註明。Yahoo 資料條款為個人用途，用於正式對客戶文件前請確認法遵要求。詳見 [ADR 0001](docs/adr/0001-lightweight-charts-with-yfinance.md)。
 
 ## 開發
 

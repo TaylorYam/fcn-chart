@@ -45,6 +45,7 @@ def chart(symbol: str, ko: Pct = None, k: Pct = None, ki: Pct = None) -> dict:
         "input": symbol.strip(),
         "symbol": history.symbol,
         "name": history.name,
+        "exchange": history.exchange,
         "currency": history.currency,
         "decimals": price_decimals(history.currency),
         "ref_date": ref.time,
