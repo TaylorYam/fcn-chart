@@ -8,5 +8,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+rem 公司網路常用自有根憑證做 HTTPS 檢查：讓 uv 改用 Windows 憑證存放區，才連得上 PyPI。
+set "UV_NATIVE_TLS=1"
 uv run fcn-chart
 pause

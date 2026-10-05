@@ -8,6 +8,9 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import yfinance as yf
+from curl_cffi import requests as curl_requests
+
+from fcn_chart.tls import ca_bundle_path
 
 # 交易所收盤時間（交易所當地時間）。收盤後再多等一段緩衝，讓 Yahoo 的日K定稿。
 MARKET_CLOSE = {
@@ -100,7 +103,9 @@ def to_candles(df: pd.DataFrame) -> list[Candle]:
 def fetch_history(symbol: str, now: datetime | None = None) -> PriceHistory:
     """抓日K。auto_adjust=False：價格只還原分割、不還原股息（等同 TradingView 預設）。"""
     now = now or datetime.now(tz=ZoneInfo("UTC"))
-    ticker = yf.Ticker(symbol)
+    # 自訂連線：信任 Windows 憑證存放區，公司網路的 HTTPS 檢查才不會擋下連線。
+    session = curl_requests.Session(impersonate="chrome", verify=ca_bundle_path())
+    ticker = yf.Ticker(symbol, session=session)
     start = (now - timedelta(days=HISTORY_DAYS)).date()
     df = ticker.history(start=start.isoformat(), interval="1d", auto_adjust=False)
     if df.empty:

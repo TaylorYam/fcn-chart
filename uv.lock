@@ -384,6 +384,8 @@ name = "fcn-chart"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "certifi" },
+    { name = "curl-cffi" },
     { name = "fastapi" },
     { name = "pandas" },
     { name = "uvicorn" },
@@ -399,6 +401,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi" },
+    { name = "curl-cffi", specifier = ">=0.7" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "uvicorn", specifier = ">=0.30" },
