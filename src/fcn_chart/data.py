@@ -1,5 +1,7 @@
 """行情資料：用 yfinance 抓日K，並排除尚未收盤的當日K棒。"""
 
+import threading
+import time as clock
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -26,6 +28,9 @@ EXCHANGE_NAMES = {
     "BTS": "CBOE",
     "JPX": "TSE",
 }
+
+# 同一代號的行情快取秒數：多人共用時降低對 Yahoo 的請求量。
+CACHE_TTL_SECONDS = 15 * 60
 
 # 抓略多於 1 年，確保「1Y」區間有完整約 252 根K棒。
 HISTORY_DAYS = 400
@@ -114,6 +119,28 @@ def fetch_history(symbol: str, now: datetime | None = None) -> PriceHistory:
         timezone=timezone,
         candles=candles,
     )
+
+
+_cache: dict[str, tuple[float, PriceHistory]] = {}
+_cache_lock = threading.Lock()
+
+
+def get_history(symbol: str) -> PriceHistory:
+    """有快取的 fetch_history：同一代號 CACHE_TTL_SECONDS 內重複查詢直接回傳上次結果。"""
+    now = clock.monotonic()
+    with _cache_lock:
+        hit = _cache.get(symbol)
+        if hit and now - hit[0] < CACHE_TTL_SECONDS:
+            return hit[1]
+    history = fetch_history(symbol)
+    with _cache_lock:
+        _cache[symbol] = (now, history)
+    return history
+
+
+def clear_cache() -> None:
+    with _cache_lock:
+        _cache.clear()
 
 
 def _volume(value) -> float:

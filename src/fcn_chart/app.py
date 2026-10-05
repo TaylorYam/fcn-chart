@@ -33,7 +33,7 @@ def chart(symbol: str, ko: Pct = None, k: Pct = None, ki: Pct = None) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
-        history = data.fetch_history(yahoo_symbol)
+        history = data.get_history(yahoo_symbol)
     except data.SymbolNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
