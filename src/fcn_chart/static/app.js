@@ -120,19 +120,53 @@ function legendModel(data, candle) {
   };
 }
 
-function renderLegendHtml(el, model) {
+// 公司 logo（同 TradingView 圖例）：由後端代抓，同源圖片才能畫進匯出圖。
+const LOGO_SIZE = 18;
+const LEGEND_GAP = 8;
+
+function loadLogo(data) {
+  const img = new Image(LOGO_SIZE, LOGO_SIZE);
+  img.className = 'legend-logo';
+  img.alt = '';
+  const ready = new Promise((resolve) => {
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      img.dataset.failed = '1'; // 查不到 logo 就不顯示
+      img.remove();
+      resolve(null);
+    };
+  });
+  img.src = `/api/logo?${new URLSearchParams({ symbol: data.symbol, exchange: data.exchange })}`;
+  return { img, ready };
+}
+
+function renderLegendHtml(el, model, logo) {
   const ohlc = model.ohlc.map(([k, v]) => `<span>${k}<b>${v}</b></span>`).join('');
   el.style.setProperty('--legend-color', model.color);
   el.innerHTML = `<div class="legend-row"><span class="legend-title"></span>${ohlc}<b>${model.change}</b></div>`;
   // 名稱用 textContent，避免任何 HTML 字元被解讀。
   $('.legend-title', el).textContent = model.title;
+  // 沿用同一個 <img>，滑鼠移動重畫圖例時不會重新載入。
+  if (logo && !logo.dataset.failed) $('.legend-row', el).prepend(logo);
 }
 
-function drawLegendCanvas(ctx, model, s) {
+function drawLegendCanvas(ctx, model, s, logo) {
   const size = TV.legendFontSize * s;
   const y = 8 * s + size;
   let x = 12 * s;
   ctx.textBaseline = 'alphabetic';
+
+  if (logo) {
+    const d = LOGO_SIZE * s;
+    const cy = (8 + 11) * s; // 圖例列高 22px 的中線
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x + d / 2, cy, d / 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(logo, x, cy - d / 2, d, d);
+    ctx.restore();
+    x += d + LEGEND_GAP * s;
+  }
 
   const segment = (text, color, gapAfter, weight = 400) => {
     ctx.font = `${weight} ${size}px ${TV.font}`;
@@ -345,7 +379,7 @@ async function renderExportCanvas(card) {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(shot, 0, 0, W, H);
 
-  drawLegendCanvas(ctx, legendModel(data, card.shown.at(-1)), s);
+  drawLegendCanvas(ctx, legendModel(data, card.shown.at(-1)), s, await card.logo.ready);
   drawTableCanvas(ctx, table, overlay.parentElement.getBoundingClientRect(), s);
   if (logo) {
     const w = logo.width * s;
@@ -452,7 +486,8 @@ function fillCard(card, data) {
   const overlay = card.table.parentElement;
   reserveOverlaySpace(card.chart, overlay, card.el.clientHeight);
 
-  const showLegend = (candle) => renderLegendHtml(card.legend, legendModel(data, candle));
+  card.logo = loadLogo(data);
+  const showLegend = (candle) => renderLegendHtml(card.legend, legendModel(data, candle), card.logo.img);
   showLegend(card.shown.at(-1));
   card.chart.subscribeCrosshairMove((param) => {
     const bar = param.time && card.shown.find((c) => c.time === param.time);

@@ -13,7 +13,7 @@ FCN 標的快速作圖：輸入標的代號與 KO/K1/K2/KI 百分比，在 Tradi
 
 ### 圖上內容
 
-- TradingView 網站預設淺色樣式：K線、左上角 OHLC 圖例、左下角 TV logo（不含成交量）。
+- TradingView 網站預設淺色樣式：K線、左上角 OHLC 圖例（名稱左邊有公司 logo）、左下角 TV logo（不含成交量）。
 - 圖例下方的白底表格：`連結標的｜參考最新價｜K…｜KI`，表頭百分比與數字隨輸入連動（KO 不列入表格）；數字為粗體，價位顏色與對應的線相同。連結標的美股只顯示代號（`MSFT`），日股為 `6758 JT`。
 - 圖片為 3651 × 1633 px（PPT 尺寸 **32.2 × 14.4 公分** 的 3 倍解析度）。「下載 PNG」有寫入 288 DPI，插入 PPT 即為 32.2 × 14.4 公分；「複製圖片」貼上時瀏覽器會丟掉 DPI，PPT 會縮成投影片寬，請在 PPT 調整大小（解析度不受影響）。
 
@@ -40,7 +40,7 @@ FCN 標的快速作圖：輸入標的代號與 KO/K1/K2/KI 百分比，在 Tradi
 
 ### 資料來源
 
-行情來自 Yahoo Finance（透過 yfinance），圖表使用開源的 TradingView Lightweight Charts，版面比照 TradingView 網站預設淺色主題，不需要 TradingView 帳號。圖上不標示資料來源，需要時請在簡報註明。Yahoo 資料條款為個人用途，用於正式對客戶文件前請確認法遵要求。詳見 [ADR 0001](docs/adr/0001-lightweight-charts-with-yfinance.md)。
+行情來自 Yahoo Finance（透過 yfinance），圖表使用開源的 TradingView Lightweight Charts，版面比照 TradingView 網站預設淺色主題，不需要 TradingView 帳號。公司 logo 取自 TradingView 的 logo 圖庫（經由其非官方代號搜尋查詢，失效時只是不顯示 logo）。圖上不標示資料來源，需要時請在簡報註明。Yahoo 資料條款為個人用途，用於正式對客戶文件前請確認法遵要求。詳見 [ADR 0001](docs/adr/0001-lightweight-charts-with-yfinance.md)。
 
 ## 開發
 

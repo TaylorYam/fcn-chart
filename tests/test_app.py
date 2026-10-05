@@ -82,3 +82,30 @@ def test_index_page_served(client):
     res = client.get("/")
     assert res.status_code == 200
     assert "lightweight-charts@4.2.2" in res.text
+
+
+def test_logo_returns_svg_with_security_headers(client, monkeypatch):
+    seen = []
+
+    def fake_logo(symbol, exchange):
+        seen.append((symbol, exchange))
+        return b"<svg></svg>"
+
+    monkeypatch.setattr(app_module.logos, "fetch_logo", fake_logo)
+    res = client.get("/api/logo", params={"symbol": "6758.T", "exchange": "TSE"})
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "image/svg+xml"
+    assert "default-src 'none'" in res.headers["content-security-policy"]
+    assert seen == [("6758.T", "TSE")]
+
+
+def test_logo_not_found_is_404(client, monkeypatch):
+    monkeypatch.setattr(app_module.logos, "fetch_logo", lambda symbol, exchange: None)
+    assert (
+        client.get("/api/logo", params={"symbol": "MSFT", "exchange": "NASDAQ"}).status_code == 404
+    )
+
+
+def test_logo_rejects_bad_exchange(client):
+    res = client.get("/api/logo", params={"symbol": "MSFT", "exchange": "../x"})
+    assert res.status_code == 422
