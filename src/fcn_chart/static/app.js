@@ -273,6 +273,10 @@ function createChart(el, data, s = 1) {
     rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.1, bottom: BOTTOM_MARGIN } },
     timeScale: { borderVisible: false, rightOffset: 10, fixLeftEdge: true, minBarSpacing: 0.5 },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    // 鎖定縮放與拖曳：區間只能用下方頁籤切換，避免誤觸滾輪後匯出不一致的圖。
+    // 關閉後滾輪事件不會被圖表攔截，游標在圖上時改為捲動網頁。
+    handleScroll: false,
+    handleScale: false,
   });
 
   const minMove = 1 / 10 ** data.decimals;
