@@ -38,6 +38,7 @@ FCN Chart 是本機執行的小工具：輸入美股／日股代號與 KO/K/KI �
 - 本機模式：雙擊 `start.bat`（= `uv run fcn-chart`），只綁定 127.0.0.1，自動開啟瀏覽器。
 - 內網共用模式：雙擊 `start-server.bat`，先在 `main` 上 `git pull --ff-only` 自動更新，再以 `APP_HOST=0.0.0.0` 啟動，同事以 `http://<主機 IP>:8765/` 連線。無登入機制，只在公司內網使用；防火牆規則由使用者／IT 設定。
 - 環境變數：`APP_PORT`（預設 8765）、`APP_HOST`（預設 127.0.0.1）。
+- 公司網路的 HTTPS 檢查：啟動檔設定 `UV_NATIVE_TLS=1`；yfinance 連線使用 certifi＋Windows 憑證存放區合併的 PEM（`tls.ca_bundle_path`，寫在系統暫存資料夾）。
 
 ## Quality attributes and constraints
 
