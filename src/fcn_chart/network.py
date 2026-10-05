@@ -1,12 +1,14 @@
-"""HTTPS 憑證：讓連線同時信任 certifi 與 Windows 憑證存放區。
+"""網路設定：讓 yfinance（curl_cffi）在公司網路也連得上。
 
-公司網路常以自有根憑證做 HTTPS 檢查，該憑證只裝在 Windows 憑證存放區；
-yfinance 底層的 curl_cffi 預設只用 certifi，會出現「憑證簽發者不明」而連不上。
+- 憑證：公司網路常以自有根憑證做 HTTPS 檢查，該憑證只裝在 Windows 憑證存放區；
+  curl_cffi 預設只用 certifi，會出現「憑證簽發者不明」。改用 certifi＋Windows 憑證。
+- Proxy：curl_cffi 只讀環境變數，不讀 Windows 網際網路設定；這裡兩者都讀。
 """
 
 import functools
 import ssl
 import tempfile
+import urllib.request
 from pathlib import Path
 
 import certifi
@@ -43,3 +45,15 @@ def ca_bundle_path() -> str:
     certifi_pem = Path(certifi.where()).read_text(encoding="utf-8")  # 註解含非 ASCII 字元
     path.write_text(build_bundle(certifi_pem, extra), encoding="utf-8")
     return str(path)
+
+
+def system_proxies() -> dict[str, str]:
+    """HTTP/HTTPS proxy：環境變數優先，其次 Windows 網際網路設定（不含 PAC 自動設定檔）。"""
+    proxies = urllib.request.getproxies_environment()
+    if not proxies and hasattr(urllib.request, "getproxies_registry"):
+        # Windows 設定的 proxy 幾乎都是一般 HTTP proxy（以 CONNECT 轉送 HTTPS）。
+        proxies = {
+            scheme: url.replace("https://", "http://", 1)
+            for scheme, url in urllib.request.getproxies_registry().items()
+        }
+    return {scheme: url for scheme, url in proxies.items() if scheme in ("http", "https")}

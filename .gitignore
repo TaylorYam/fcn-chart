@@ -43,3 +43,6 @@ Thumbs.db
 *~
 .idea/
 .vscode/*.local.json
+
+# 連線診斷輸出
+/diagnose.txt

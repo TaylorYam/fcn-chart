@@ -9,8 +9,12 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import yfinance as yf
 from curl_cffi import requests as curl_requests
+from yfinance import exceptions as yf_errors
 
-from fcn_chart.tls import ca_bundle_path
+from fcn_chart.network import ca_bundle_path, system_proxies
+
+# yfinance 預設會吞掉例外、只回傳空資料，連線失敗也會變成「查無資料」；改為拋出例外再分類。
+yf.config.debug.hide_exceptions = False
 
 # 交易所收盤時間（交易所當地時間）。收盤後再多等一段緩衝，讓 Yahoo 的日K定稿。
 MARKET_CLOSE = {
@@ -41,6 +45,10 @@ HISTORY_DAYS = 400
 
 class SymbolNotFoundError(LookupError):
     pass
+
+
+class DataSourceError(RuntimeError):
+    """連不上 Yahoo 或被限流等，跟代號本身無關的錯誤。"""
 
 
 @dataclass(frozen=True)
@@ -103,11 +111,9 @@ def to_candles(df: pd.DataFrame) -> list[Candle]:
 def fetch_history(symbol: str, now: datetime | None = None) -> PriceHistory:
     """抓日K。auto_adjust=False：價格只還原分割、不還原股息（等同 TradingView 預設）。"""
     now = now or datetime.now(tz=ZoneInfo("UTC"))
-    # 自訂連線：信任 Windows 憑證存放區，公司網路的 HTTPS 檢查才不會擋下連線。
-    session = curl_requests.Session(impersonate="chrome", verify=ca_bundle_path())
-    ticker = yf.Ticker(symbol, session=session)
+    ticker = yf.Ticker(symbol, session=yahoo_session())
     start = (now - timedelta(days=HISTORY_DAYS)).date()
-    df = ticker.history(start=start.isoformat(), interval="1d", auto_adjust=False)
+    df = download_daily(ticker, symbol, start.isoformat())
     if df.empty:
         raise SymbolNotFoundError(f"查無資料：{symbol}")
 
@@ -146,6 +152,33 @@ def get_history(symbol: str) -> PriceHistory:
 def clear_cache() -> None:
     with _cache_lock:
         _cache.clear()
+
+
+def yahoo_session() -> curl_requests.Session:
+    """信任 Windows 憑證存放區並使用系統 proxy，公司網路才連得上。"""
+    return curl_requests.Session(
+        impersonate="chrome", verify=ca_bundle_path(), proxies=system_proxies() or None
+    )
+
+
+def download_daily(ticker: yf.Ticker, symbol: str, start: str) -> pd.DataFrame:
+    try:
+        return ticker.history(start=start, interval="1d", auto_adjust=False)
+    except (yf_errors.YFTickerMissingError, yf_errors.YFTzMissingError) as exc:
+        raise SymbolNotFoundError(f"查無資料：{symbol}") from exc
+    except yf_errors.YFRateLimitError as exc:
+        raise DataSourceError("Yahoo 暫時限制查詢次數，請稍後再試") from exc
+    except (OSError, yf_errors.YFException) as exc:
+        # 代號不存在時 Yahoo 回 HTTP 404；其餘 curl_cffi 錯誤（OSError 子類別）
+        # 多半是憑證、proxy 或網站被封鎖。
+        if getattr(getattr(exc, "response", None), "status_code", None) == 404:
+            raise SymbolNotFoundError(f"查無資料：{symbol}") from exc
+        raise DataSourceError(f"無法連線到 Yahoo：{_short(exc)}") from exc
+
+
+def _short(exc: Exception, limit: int = 300) -> str:
+    text = " ".join(str(exc).split())
+    return text if len(text) <= limit else text[:limit] + "…"
 
 
 def _volume(value) -> float:

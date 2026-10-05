@@ -14,6 +14,8 @@ def client(monkeypatch):
         calls.append(symbol)
         if symbol == "ZZZZ":
             raise data.SymbolNotFoundError("查無資料：ZZZZ")
+        if symbol == "DOWN":
+            raise data.DataSourceError("無法連線到 Yahoo：timeout")
         return PriceHistory(
             symbol=symbol,
             name="Sony Group Corporation",
@@ -71,6 +73,12 @@ def test_unknown_symbol_is_404(client):
     res = client.get("/api/chart", params={"symbol": "ZZZZ"})
     assert res.status_code == 404
     assert "ZZZZ" in res.json()["detail"]
+
+
+def test_data_source_error_is_502_with_reason(client):
+    res = client.get("/api/chart", params={"symbol": "DOWN"})
+    assert res.status_code == 502
+    assert res.json()["detail"] == "無法連線到 Yahoo：timeout"
 
 
 def test_non_positive_pct_is_422(client):
