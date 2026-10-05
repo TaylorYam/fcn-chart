@@ -24,15 +24,22 @@ const LINE_WIDTH = 2;
 // 區間按鈕：月數，或 'YTD'。
 const DEFAULT_RANGE = '12';
 
-// 匯出圖：PPT 圖片 32.2 × 14.4 公分。版面以 96 DPI（約 1217 × 544 px）排，
-// 實際以 2 倍解析度輸出（192 DPI），並在 PNG 寫入 DPI，插入 PPT 時就是這個尺寸。
+// 匯出圖：PPT 圖片 32.2 × 14.4 公分。版面以 96 DPI（1217 × 544 px）排，再依倍率放大輸出。
+// - 下載：2 倍（2434 × 1089 px）並在 PNG 寫入 192 DPI，插入 PPT 就是這個尺寸且較清晰。
+// - 複製：1 倍。瀏覽器寫入剪貼簿會重新編碼、丟掉 DPI，PPT 一律以 96 DPI 解讀，
+//   只有 1 倍解析度貼上後才會是 32.2 × 14.4 公分。
 const PPT_CM = { width: 32.2, height: 14.4 };
-const EXPORT_SCALE = 2;
-const EXPORT_DPI = 96 * EXPORT_SCALE;
-const EXPORT = {
-  width: Math.round((PPT_CM.width / 2.54) * EXPORT_DPI),
-  height: Math.round((PPT_CM.height / 2.54) * EXPORT_DPI),
-};
+const DOWNLOAD_SCALE = 2;
+const CLIPBOARD_SCALE = 1;
+
+function exportSize(scale) {
+  const dpi = 96 * scale;
+  return {
+    dpi,
+    width: Math.round((PPT_CM.width / 2.54) * dpi),
+    height: Math.round((PPT_CM.height / 2.54) * dpi),
+  };
+}
 
 const PCT_IDS = ['ko', 'k1', 'k2', 'ki'];
 const STORAGE_KEY = 'fcn-chart:last-input';
@@ -298,11 +305,9 @@ async function logoImage(logoEl) {
 // 匯出時另建一張「一開始就是匯出尺寸與字級」的隱藏圖表再截圖。
 // 不能把畫面上的圖表暫時放大：Lightweight Charts 會快取文字寬度，
 // 改字級後邊緣的時間標籤會內縮不足而被切掉。
-async function renderExportCanvas(card) {
+async function renderExportCanvas(card, s = DOWNLOAD_SCALE) {
   const { data, table } = card;
-  const s = EXPORT_SCALE;
-  const W = EXPORT.width;
-  const H = EXPORT.height;
+  const { width: W, height: H } = exportSize(s);
   const overlay = table.parentElement;
 
   const host = document.createElement('div');
@@ -344,10 +349,10 @@ async function renderExportCanvas(card) {
   return canvas;
 }
 
-function canvasToBlob(canvas) {
+function canvasToBlob(canvas, scale = DOWNLOAD_SCALE) {
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG 產生失敗'))), 'image/png'),
-  ).then((blob) => withDpi(blob, EXPORT_DPI));
+  ).then((blob) => withDpi(blob, exportSize(scale).dpi));
 }
 
 // 在 PNG 的 IHDR 之後插入 pHYs（解析度）區塊，PPT 插入圖片時才會是 32.2 × 14.4 公分。
@@ -459,7 +464,7 @@ function fillCard(card, data) {
   $('.copy', card.root).addEventListener('click', async () => {
     try {
       // ClipboardItem 接受 Promise，讓寫入剪貼簿仍算在這次點擊的使用者操作內。
-      const blob = renderExportCanvas(card).then(canvasToBlob);
+      const blob = renderExportCanvas(card, CLIPBOARD_SCALE).then((c) => canvasToBlob(c, CLIPBOARD_SCALE));
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       setStatus(card, '已複製，可直接在 PPT 按 Ctrl+V 貼上。');
     } catch (err) {
