@@ -18,11 +18,11 @@ FCN Chart 是本機執行的小工具：輸入美股／日股代號與 KO/K/KI �
 
 | 模組 | 職責 |
 | --- | --- |
-| `src/fcn_chart/symbols.py` | 使用者輸入 → Yahoo 代號（4 碼數字開頭補 `.T`；`BRK.B` → `BRK-B`） |
+| `src/fcn_chart/symbols.py` | 使用者輸入 → Yahoo 代號（4 碼數字開頭補 `.T`；`BRK.B` → `BRK-B`）；表格顯示代號（日股 `代號 JT`） |
 | `src/fcn_chart/data.py` | 抓約 400 天日K、排除交易所當日未收盤（收盤後 20 分鐘緩衝）的K棒 |
-| `src/fcn_chart/levels.py` | 期初價 × % → 價位；美股 2 位、日股整數，四捨五入 |
-| `src/fcn_chart/app.py` | `GET /` 頁面、`GET /api/chart?symbol=&ko=&k=&ki=` |
-| `src/fcn_chart/static/` | TradingView 樣式作圖（圖例、成交量、TV logo）、區間切換、匯出 1600×900 PNG、複製、zip |
+| `src/fcn_chart/levels.py` | KO/K1/K2/KI：期初價 × % → 價位；美股 2 位、日股整數，四捨五入；單一履約價標示為 K |
+| `src/fcn_chart/app.py` | `GET /` 頁面、`GET /api/chart?symbol=&ko=&k1=&k2=&ki=` |
+| `src/fcn_chart/static/` | TradingView 樣式作圖（圖例、TV logo）、FCN 參數表格、區間切換、匯出 32.2×14.4 公分 PNG（另建隱藏圖表截圖）、複製、zip |
 
 價位計算在後端完成並有單元測試；前端只負責呈現與匯出。
 

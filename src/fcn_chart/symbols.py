@@ -37,10 +37,8 @@ def normalize_symbol(raw: str) -> str:
     raise InvalidSymbolError(f"無法辨識的代號：{raw.strip()}")
 
 
-def split_symbols(text: str) -> list[str]:
-    """把「TSM, NVDA 6758」這類輸入切成代號清單（保留順序、去重）。"""
-    seen: list[str] = []
-    for part in re.split(r"[\s,，、;；]+", text):
-        if part and part.upper() not in (s.upper() for s in seen):
-            seen.append(part)
-    return seen
+def display_ticker(yahoo_symbol: str) -> str:
+    """表格用的代號：美股不加後綴（BRK-B → BRK.B），日股為「代號 JT」（Bloomberg 東證後綴）。"""
+    if yahoo_symbol.endswith(JP_SUFFIX):
+        return f"{yahoo_symbol[: -len(JP_SUFFIX)]} JT"
+    return yahoo_symbol.replace("-", ".")
