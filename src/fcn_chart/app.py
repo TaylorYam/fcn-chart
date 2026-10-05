@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from fcn_chart import data
 from fcn_chart.levels import compute_levels, price_decimals, round_half_up
-from fcn_chart.symbols import InvalidSymbolError, normalize_symbol
+from fcn_chart.symbols import InvalidSymbolError, display_ticker, normalize_symbol
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -26,7 +26,7 @@ def index() -> FileResponse:
 
 
 @app.get("/api/chart")
-def chart(symbol: str, ko: Pct = None, k: Pct = None, ki: Pct = None) -> dict:
+def chart(symbol: str, ko: Pct = None, k1: Pct = None, k2: Pct = None, ki: Pct = None) -> dict:
     try:
         yahoo_symbol = normalize_symbol(symbol)
     except InvalidSymbolError as exc:
@@ -40,10 +40,12 @@ def chart(symbol: str, ko: Pct = None, k: Pct = None, ki: Pct = None) -> dict:
     ref = history.ref_candle
     # Yahoo 價格是 float32 轉來的（如 472.7799987），先去掉雜訊再算，避免臨界值進位錯誤。
     ref_close = round_half_up(ref.close, 4)
-    levels = compute_levels(ref_close, {"KO": ko, "K": k, "KI": ki}, history.currency)
+    pcts = {"KO": ko, "K1": k1, "K2": k2, "KI": ki}
+    levels = compute_levels(ref_close, pcts, history.currency)
     return {
         "input": symbol.strip(),
         "symbol": history.symbol,
+        "ticker": display_ticker(history.symbol),
         "name": history.name,
         "exchange": history.exchange,
         "currency": history.currency,

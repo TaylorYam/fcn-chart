@@ -11,7 +11,7 @@
 
 - 資料：以 yfinance（Yahoo Finance）抓日K，`auto_adjust=False`（只還原分割、不還原股息，等同 TradingView 預設顯示）。
 - 作圖：前端使用開源的 TradingView Lightweight Charts v4.2.2，以 `createPriceLine` 畫水平線、`takeScreenshot` 匯出圖片。做法沿用 `TaylorYam/Huda-taiwan-market-quant` 的K線設定。
-- 版面樣式比照 TradingView 網站預設淺色主題：TV 配色（漲 `#089981`／跌 `#F23645`）、左上角 OHLC 圖例、成交量、左下角 TV logo。
+- 版面樣式比照 TradingView 網站預設淺色主題：TV 配色（漲 `#089981`／跌 `#F23645`）、左上角 OHLC 圖例、左下角 TV logo（成交量依使用者要求不顯示）。
 - 保留 TV logo（`attributionLogo: true`）作為 Lightweight Charts 的 Apache 2.0 attribution；不另加資料來源註腳（使用者決定）。
 
 ## Alternatives considered

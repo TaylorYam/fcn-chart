@@ -6,8 +6,6 @@
 const TV = {
   up: '#089981',
   down: '#F23645',
-  volUp: 'rgba(8, 153, 129, 0.5)',
-  volDown: 'rgba(242, 54, 69, 0.5)',
   text: '#131722',
   grid: '#F0F3FA',
   font: "-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif",
@@ -17,7 +15,8 @@ const TV = {
 
 const LEVEL_STYLE = {
   KO: { color: '#16a34a', lineStyle: LightweightCharts.LineStyle.Solid },
-  K: { color: '#2563eb', lineStyle: LightweightCharts.LineStyle.Solid },
+  K1: { color: '#2563eb', lineStyle: LightweightCharts.LineStyle.Solid },
+  K2: { color: '#7c3aed', lineStyle: LightweightCharts.LineStyle.Solid },
   KI: { color: '#dc2626', lineStyle: LightweightCharts.LineStyle.Dashed },
 };
 const LINE_WIDTH = 2;
@@ -25,24 +24,36 @@ const LINE_WIDTH = 2;
 // 區間按鈕：月數，或 'YTD'。
 const DEFAULT_RANGE = '12';
 
-// 匯出圖：16:9；整張圖等比例放大 EXPORT_SCALE 倍（字級、圖例、logo），讓貼進 PPT 仍清楚。
-const EXPORT = { width: 1600, height: 900 };
-const EXPORT_SCALE = 4 / 3;
+// 匯出圖：PPT 圖片 32.2 × 14.4 公分。版面以 96 DPI（約 1217 × 544 px）排，
+// 實際以 2 倍解析度輸出（192 DPI），並在 PNG 寫入 DPI，插入 PPT 時就是這個尺寸。
+const PPT_CM = { width: 32.2, height: 14.4 };
+const EXPORT_SCALE = 2;
+const EXPORT_DPI = 96 * EXPORT_SCALE;
+const EXPORT = {
+  width: Math.round((PPT_CM.width / 2.54) * EXPORT_DPI),
+  height: Math.round((PPT_CM.height / 2.54) * EXPORT_DPI),
+};
 
+const PCT_IDS = ['ko', 'k1', 'k2', 'ki'];
 const STORAGE_KEY = 'fcn-chart:last-input';
 
 // ---- 工具 ----------------------------------------------------------------
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
-function splitSymbols(text) {
+const symbolInputs = () => [...document.querySelectorAll('.sym')];
+
+// 讀取 5 個代號欄：去空白、去重複，保留順序。
+function readSymbols() {
   const seen = new Set();
-  return text.split(/[\s,，、;；]+/).filter((s) => {
-    const key = s.toUpperCase();
-    if (!s || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return symbolInputs()
+    .map((input) => input.value.trim())
+    .filter((s) => {
+      const key = s.toUpperCase();
+      if (!s || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 // 與 TradingView 一致：不加千分位。
@@ -54,16 +65,6 @@ function fmtPct(pct) {
   return `${Number(pct.toFixed(4))}%`;
 }
 
-function fmtVolume(v) {
-  const units = [[1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
-  for (const [size, unit] of units) if (v >= size) return `${(v / size).toFixed(2)}${unit}`;
-  return String(Math.round(v));
-}
-
-function displayTicker(data) {
-  return data.symbol.replace(/\.T$/, '');
-}
-
 function pctValue(id) {
   const raw = $(`#${id}`).value.trim();
   return raw === '' ? null : Number(raw);
@@ -73,15 +74,16 @@ function loadLastInput() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
     if (!saved) return;
-    $('#symbols').value = saved.symbols ?? '';
-    for (const id of ['ko', 'k', 'ki']) $(`#${id}`).value = saved[id] ?? '';
+    const symbols = Array.isArray(saved.symbols) ? saved.symbols : [];
+    symbolInputs().forEach((input, i) => { input.value = symbols[i] ?? ''; });
+    for (const id of PCT_IDS) if (id in saved) $(`#${id}`).value = saved[id];
   } catch { /* 無痕模式等情況讀不到就算了 */ }
 }
 
 function saveLastInput() {
   try {
-    const value = { symbols: $('#symbols').value };
-    for (const id of ['ko', 'k', 'ki']) value[id] = $(`#${id}`).value;
+    const value = { symbols: symbolInputs().map((input) => input.value) };
+    for (const id of PCT_IDS) value[id] = $(`#${id}`).value;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
   } catch { /* ignore */ }
 }
@@ -104,7 +106,7 @@ function legendModel(data, candle) {
   const sign = change >= 0 ? '+' : '−';
   const d = data.decimals;
   return {
-    title: `${data.name} · 1D · ${data.exchange || displayTicker(data)}`,
+    title: `${data.name} · 1D · ${data.exchange || data.ticker}`,
     color: candle.close >= candle.open ? TV.up : TV.down,
     ohlc: [
       ['O', fmtPrice(candle.open, d)],
@@ -113,25 +115,21 @@ function legendModel(data, candle) {
       ['C', fmtPrice(candle.close, d)],
     ],
     change: `${sign}${fmtPrice(Math.abs(change), d)} (${sign}${Math.abs(changePct).toFixed(2)}%)`,
-    volume: fmtVolume(candle.volume),
   };
 }
 
 function renderLegendHtml(el, model) {
   const ohlc = model.ohlc.map(([k, v]) => `<span>${k}<b>${v}</b></span>`).join('');
   el.style.setProperty('--legend-color', model.color);
-  el.innerHTML = `
-    <div class="legend-row"><span class="legend-title"></span>${ohlc}<b>${model.change}</b></div>
-    <div class="legend-row"><span>Vol</span><b>${model.volume}</b></div>`;
+  el.innerHTML = `<div class="legend-row"><span class="legend-title"></span>${ohlc}<b>${model.change}</b></div>`;
   // 名稱用 textContent，避免任何 HTML 字元被解讀。
   $('.legend-title', el).textContent = model.title;
 }
 
 function drawLegendCanvas(ctx, model, s) {
   const size = TV.legendFontSize * s;
-  const lineH = 22 * s;
-  const x0 = 12 * s;
-  let y = 8 * s + size;
+  const y = 8 * s + size;
+  let x = 12 * s;
   ctx.textBaseline = 'alphabetic';
 
   const segment = (text, color, gapAfter, weight = 400) => {
@@ -141,49 +139,97 @@ function drawLegendCanvas(ctx, model, s) {
     x += ctx.measureText(text).width + gapAfter;
   };
 
-  let x = x0;
   segment(model.title, TV.text, 10 * s, 500);
   for (const [k, v] of model.ohlc) {
     segment(k, TV.text, 2 * s);
     segment(v, model.color, 8 * s);
   }
   segment(model.change, model.color, 0);
+}
 
-  y += lineH;
-  x = x0;
-  segment('Vol', TV.text, 6 * s);
-  segment(model.volume, model.color, 0);
+// ---- FCN 參數表格（圖例下方） ---------------------------------------------
+
+function tableModel(data) {
+  const d = data.decimals;
+  const strikes = data.levels.filter((l) => l.name !== 'KO');
+  return {
+    headers: ['連結標的', '參考最新價', ...strikes.map((l) => `${l.label} (${fmtPct(l.pct)})`)],
+    row: [data.ticker, fmtPrice(data.ref_close, d), ...strikes.map((l) => fmtPrice(l.price, d))],
+  };
+}
+
+function renderTableHtml(table, model) {
+  table.replaceChildren();
+  const head = table.createTHead().insertRow();
+  for (const text of model.headers) head.appendChild(document.createElement('th')).textContent = text;
+  const body = table.createTBody().insertRow();
+  for (const text of model.row) body.insertCell().textContent = text;
+}
+
+// 依畫面上表格的實際排版（CSS px）放大 s 倍畫到匯出圖，確保兩者一致。
+function drawTableCanvas(ctx, table, origin, s) {
+  const box = table.getBoundingClientRect();
+  const X = (v) => (v - origin.left) * s;
+  const Y = (v) => (v - origin.top) * s;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(X(box.left), Y(box.top), box.width * s, box.height * s);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const cell of table.querySelectorAll('th, td')) {
+    const r = cell.getBoundingClientRect();
+    const style = getComputedStyle(cell);
+    if (cell.tagName === 'TH') {
+      ctx.fillStyle = style.backgroundColor;
+      ctx.fillRect(X(r.left), Y(r.top), r.width * s, r.height * s);
+    }
+    ctx.fillStyle = style.color;
+    ctx.font = `${style.fontWeight} ${parseFloat(style.fontSize) * s}px ${style.fontFamily}`;
+    ctx.fillText(cell.textContent, X(r.left + r.width / 2), Y(r.top + r.height / 2));
+  }
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  const tableStyle = getComputedStyle(table);
+  const top = parseFloat(tableStyle.borderTopWidth) * s;
+  const bottom = parseFloat(tableStyle.borderBottomWidth) * s;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(X(box.left), Y(box.top), box.width * s, top);
+  ctx.fillRect(X(box.left), Y(box.bottom) - bottom, box.width * s, bottom);
 }
 
 // ---- 圖表 ----------------------------------------------------------------
 
-function createChart(el, data) {
+// 左上角圖例＋表格是白底，讓價格軸上方預留它們的高度，K棒與價位線就不會被蓋住。
+const OVERLAY_GAP = 10;
+const BOTTOM_MARGIN = 0.08;
+
+function reserveOverlaySpace(chart, overlay, chartHeight, s = 1) {
+  const reserved = (overlay.offsetTop + overlay.offsetHeight + OVERLAY_GAP) * s;
+  const top = Math.min(reserved / chartHeight, 0.6);
+  chart.priceScale('right').applyOptions({ scaleMargins: { top, bottom: BOTTOM_MARGIN } });
+}
+
+// s：放大倍率（匯出用）。字級、線寬乘上 s。
+function createChart(el, data, s = 1) {
   const chart = LightweightCharts.createChart(el, {
     width: el.clientWidth,
     height: el.clientHeight,
     layout: {
       background: { type: 'solid', color: '#ffffff' },
       textColor: TV.text,
-      fontSize: TV.fontSize,
+      fontSize: TV.fontSize * s,
       fontFamily: TV.font,
       attributionLogo: true,
     },
     grid: { vertLines: { color: TV.grid }, horzLines: { color: TV.grid } },
-    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.1, bottom: 0.08 } },
+    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.1, bottom: BOTTOM_MARGIN } },
     timeScale: { borderVisible: false, rightOffset: 10, fixLeftEdge: true, minBarSpacing: 0.5 },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
   });
 
   const minMove = 1 / 10 ** data.decimals;
   const levelPrices = data.levels.map((l) => l.price);
-
-  const volume = chart.addHistogramSeries({
-    priceScaleId: '',
-    priceFormat: { type: 'volume' },
-    priceLineVisible: false,
-    lastValueVisible: false,
-  });
-  volume.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
   const candles = chart.addCandlestickSeries({
     upColor: TV.up,
@@ -206,18 +252,18 @@ function createChart(el, data) {
     },
   });
 
-  const priceLines = data.levels.map((level) =>
+  for (const level of data.levels) {
     candles.createPriceLine({
       price: level.price,
       color: LEVEL_STYLE[level.name].color,
       lineStyle: LEVEL_STYLE[level.name].lineStyle,
-      lineWidth: LINE_WIDTH,
+      lineWidth: LINE_WIDTH * s,
       axisLabelVisible: true,
-      title: `${level.name} ${fmtPct(level.pct)}｜${fmtPrice(level.price, data.decimals)}`,
-    }),
-  );
+      title: `${level.label} ${fmtPct(level.pct)}｜${fmtPrice(level.price, data.decimals)}`,
+    });
+  }
 
-  return { chart, candles, volume, priceLines };
+  return { chart, candles };
 }
 
 // 只載入區間內的K棒並固定左邊界：Lightweight Charts 只有在左邊界固定時，
@@ -225,12 +271,8 @@ function createChart(el, data) {
 function applyRange(card, range) {
   const { data } = card;
   const start = rangeStart(data.candles.at(-1).time, range);
-  const shown = data.candles.filter((c) => c.time >= start);
-  card.shown = shown;
-  card.candles.setData(shown);
-  card.volume.setData(
-    shown.map((c) => ({ time: c.time, value: c.volume, color: c.close >= c.open ? TV.volUp : TV.volDown })),
-  );
+  card.shown = data.candles.filter((c) => c.time >= start);
+  card.candles.setData(card.shown);
   card.chart.timeScale().fitContent();
 }
 
@@ -246,34 +288,45 @@ function loadImage(src) {
 }
 
 // TV logo 是疊在圖上的 HTML 元素，takeScreenshot 不會包含，要自己畫上去。
-async function logoImage(card) {
-  const svg = $('#tv-attr-logo svg', card.el);
+async function logoImage(logoEl) {
+  const svg = $('svg', logoEl);
   if (!svg) return null;
   const markup = svg.outerHTML.replaceAll('var(--fill)', TV.text).replaceAll('var(--stroke)', '#fff');
   return loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`);
 }
 
+// 匯出時另建一張「一開始就是匯出尺寸與字級」的隱藏圖表再截圖。
+// 不能把畫面上的圖表暫時放大：Lightweight Charts 會快取文字寬度，
+// 改字級後邊緣的時間標籤會內縮不足而被切掉。
 async function renderExportCanvas(card) {
-  const { chart, priceLines, data, el } = card;
+  const { data, table } = card;
   const s = EXPORT_SCALE;
   const W = EXPORT.width;
   const H = EXPORT.height;
-  // 暫時把圖表放大到匯出尺寸、字級與線寬乘上 s，截圖後還原。
-  // 匯出一律顯示所選區間的完整K棒（fitContent），左邊界的時間標籤才會正確內縮。
-  chart.applyOptions({ layout: { fontSize: TV.fontSize * s } });
-  priceLines.forEach((line) => line.applyOptions({ lineWidth: Math.round(LINE_WIDTH * s) }));
-  chart.resize(W, H, true);
-  chart.timeScale().fitContent();
+  const overlay = table.parentElement;
 
-  const shot = chart.takeScreenshot();
-  const root = el.firstElementChild.getBoundingClientRect();
-  const logoEl = $('#tv-attr-logo', el);
-  const logoRect = logoEl ? logoEl.getBoundingClientRect() : null;
-
-  chart.applyOptions({ layout: { fontSize: TV.fontSize } });
-  priceLines.forEach((line) => line.applyOptions({ lineWidth: LINE_WIDTH }));
-  chart.resize(el.clientWidth, el.clientHeight, true);
-  chart.timeScale().fitContent();
+  const host = document.createElement('div');
+  host.style.cssText = `position:fixed;left:${-W - 100}px;top:0;width:${W}px;height:${H}px;`;
+  document.body.append(host);
+  let shot;
+  let logo = null;
+  let logoBottom = H;
+  const exp = createChart(host, data, s);
+  try {
+    exp.candles.setData(card.shown);
+    reserveOverlaySpace(exp.chart, overlay, H, s);
+    exp.chart.timeScale().fitContent();
+    shot = exp.chart.takeScreenshot();
+    const logoEl = $('#tv-attr-logo', host);
+    if (logoEl) {
+      // logo 的 CSS 是 left/bottom 10px；換算成「圖表區底部」再依倍率重新定位。
+      logoBottom = logoEl.getBoundingClientRect().bottom - host.getBoundingClientRect().top + 10;
+      logo = await logoImage(logoEl);
+    }
+  } finally {
+    exp.chart.remove();
+    host.remove();
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -282,12 +335,11 @@ async function renderExportCanvas(card) {
   ctx.drawImage(shot, 0, 0, W, H);
 
   drawLegendCanvas(ctx, legendModel(data, card.shown.at(-1)), s);
-
-  const logo = await logoImage(card);
-  if (logo && logoRect) {
-    const w = logoRect.width * s;
-    const h = logoRect.height * s;
-    ctx.drawImage(logo, logoRect.left - root.left, logoRect.bottom - root.top - h, w, h);
+  drawTableCanvas(ctx, table, overlay.parentElement.getBoundingClientRect(), s);
+  if (logo) {
+    const w = logo.width * s;
+    const h = logo.height * s;
+    ctx.drawImage(logo, 10 * s, logoBottom - 10 * s - h, w, h);
   }
   return canvas;
 }
@@ -295,11 +347,39 @@ async function renderExportCanvas(card) {
 function canvasToBlob(canvas) {
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG 產生失敗'))), 'image/png'),
-  );
+  ).then((blob) => withDpi(blob, EXPORT_DPI));
+}
+
+// 在 PNG 的 IHDR 之後插入 pHYs（解析度）區塊，PPT 插入圖片時才會是 32.2 × 14.4 公分。
+async function withDpi(blob, dpi) {
+  const png = new Uint8Array(await blob.arrayBuffer());
+  const ppm = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(21);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, 9);
+  chunk.set([0x70, 0x48, 0x59, 0x73], 4); // "pHYs"
+  view.setUint32(8, ppm);
+  view.setUint32(12, ppm);
+  chunk[16] = 1; // 單位：公尺
+  view.setUint32(17, crc32(chunk.subarray(4, 17)));
+  const ihdrEnd = 8 + 25; // PNG 簽章 8 bytes + IHDR 區塊 25 bytes
+  return new Blob([png.subarray(0, ihdrEnd), chunk, png.subarray(ihdrEnd)], { type: 'image/png' });
+}
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
 }
 
 function fileName(data) {
-  return `${displayTicker(data)}_FCN_${data.ref_date}.png`;
+  return `${data.ticker.replace(' ', '_')}_FCN_${data.ref_date}.png`;
 }
 
 function downloadBlob(blob, name) {
@@ -326,7 +406,13 @@ function buildCard(symbol) {
   $('.ticker', root).textContent = symbol.toUpperCase();
   root.classList.add('loading');
   $('#cards').append(root);
-  const card = { root, el: $('.chart', root), legend: $('.legend', root), symbol };
+  const card = {
+    root,
+    symbol,
+    el: $('.chart', root),
+    legend: $('.legend', root),
+    table: $('.fcn-table', root),
+  };
   setStatus(card, '讀取中…');
   return card;
 }
@@ -334,12 +420,15 @@ function buildCard(symbol) {
 function fillCard(card, data) {
   card.data = data;
   card.root.classList.remove('loading');
-  $('.ticker', card.root).textContent = displayTicker(data);
+  $('.ticker', card.root).textContent = data.ticker;
   $('.ref', card.root).textContent =
     `期初價 ${fmtPrice(data.ref_close, data.decimals)} ${data.currency}（${data.ref_date} 收盤）`;
 
   Object.assign(card, createChart(card.el, data));
   applyRange(card, DEFAULT_RANGE);
+  renderTableHtml(card.table, tableModel(data));
+  const overlay = card.table.parentElement;
+  reserveOverlaySpace(card.chart, overlay, card.el.clientHeight);
 
   const showLegend = (candle) => renderLegendHtml(card.legend, legendModel(data, candle));
   showLegend(card.shown.at(-1));
@@ -350,6 +439,7 @@ function fillCard(card, data) {
 
   card.observer = new ResizeObserver(() => {
     card.chart.resize(card.el.clientWidth, card.el.clientHeight);
+    reserveOverlaySpace(card.chart, overlay, card.el.clientHeight);
     card.chart.timeScale().fitContent();
   });
   card.observer.observe(card.el);
@@ -412,11 +502,14 @@ async function loadCard(card, pcts) {
 
 $('#form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  const symbols = splitSymbols($('#symbols').value);
-  if (!symbols.length) return;
+  const symbols = readSymbols();
+  if (!symbols.length) {
+    symbolInputs()[0].focus();
+    return;
+  }
   saveLastInput();
 
-  const pcts = { ko: pctValue('ko'), k: pctValue('k'), ki: pctValue('ki') };
+  const pcts = Object.fromEntries(PCT_IDS.map((id) => [id, pctValue(id)]));
   clearCards();
   $('#download-all').disabled = true;
   const pending = symbols.map((symbol) => {
