@@ -20,7 +20,7 @@ FCN Chart 是本機執行的小工具：輸入美股／日股代號與 KO/K/KI �
 | 模組 | 職責 |
 | --- | --- |
 | `src/fcn_chart/symbols.py` | 使用者輸入 → Yahoo 代號（4 碼數字開頭補 `.T`；`BRK.B` → `BRK-B`）；表格顯示代號（日股 `代號 JT`） |
-| `src/fcn_chart/data.py` | 直接呼叫 Yahoo `v8/finance/chart` 抓約 400 天日K（單一請求、不需 crumb）、排除交易所當日未收盤（收盤後 20 分鐘緩衝）的K棒 |
+| `src/fcn_chart/data.py` | 直接呼叫 Yahoo `v8/finance/chart` 抓 2 年日K（單一請求、不需 crumb；簡單 User-Agent，curl_cffi 失敗或 429 時改用 urllib）、排除交易所當日未收盤（收盤後 20 分鐘緩衝）的K棒 |
 | `src/fcn_chart/levels.py` | KO/K1/K2/KI：期初價 × % → 價位；美股 2 位、日股整數，四捨五入；單一履約價標示為 K |
 | `src/fcn_chart/logos.py` | 公司 logo：以 TradingView 代號搜尋查 logoid，抓 `s3-symbol-logo.tradingview.com` 的 SVG，記憶體快取 |
 | `src/fcn_chart/app.py` | `GET /` 頁面、`GET /api/chart?symbol=&ko=&k1=&k2=&ki=`、`GET /api/logo?symbol=&exchange=`（SVG 加 CSP 標頭） |

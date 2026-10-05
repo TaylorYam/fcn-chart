@@ -10,6 +10,7 @@
 ## Decision
 
 - 移除 yfinance，`data.py` 以 curl_cffi（模擬 Chrome、合併憑證、系統 proxy）直接呼叫 chart API，每檔一個請求。
+- 請求寫法與公司電腦上診斷成功者一致：`User-Agent: Mozilla/5.0`、`range=2y`（#18：完整 Chrome User-Agent 在公司網路仍被 429，推測與 HTTPS 檢查改變連線特徵有關）；curl_cffi 被 429 或連線失敗時改用 urllib 重試。
 - chart API 的 `meta` 已含幣別、交易所、時區、`longName`；`indicators.quote` 的開高低收為「只還原分割、不還原股息」，與原本 `auto_adjust=False` 相同。
 
 ## Alternatives considered
