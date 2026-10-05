@@ -10,6 +10,7 @@ import threading
 import urllib.parse
 import urllib.request
 
+from fcn_chart.network import ssl_context
 from fcn_chart.symbols import JP_SUFFIX
 
 SEARCH_URL = "https://symbol-search.tradingview.com/symbol_search/v3/"
@@ -43,7 +44,9 @@ def pick_logoid(results: list[dict], code: str, exchange: str) -> str | None:
 
 def _get(url: str) -> bytes:
     request = urllib.request.Request(url, headers=HEADERS)
-    with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+    with urllib.request.urlopen(
+        request, timeout=TIMEOUT_SECONDS, context=ssl_context()
+    ) as response:
         return response.read(MAX_SVG_BYTES + 1)
 
 

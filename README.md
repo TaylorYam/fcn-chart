@@ -48,7 +48,7 @@ FCN 標的快速作圖：輸入標的代號與 KO/K1/K2/KI 百分比，在 Tradi
 
 ### 資料來源
 
-行情來自 Yahoo Finance（透過 yfinance），圖表使用開源的 TradingView Lightweight Charts，版面比照 TradingView 網站預設淺色主題，不需要 TradingView 帳號。公司 logo 取自 TradingView 的 logo 圖庫（經由其非官方代號搜尋查詢，失效時只是不顯示 logo）。圖上不標示資料來源，需要時請在簡報註明。Yahoo 資料條款為個人用途，用於正式對客戶文件前請確認法遵要求。詳見 [ADR 0001](docs/adr/0001-lightweight-charts-with-yfinance.md)。
+行情來自 Yahoo Finance（直接呼叫其 chart API），圖表使用開源的 TradingView Lightweight Charts，版面比照 TradingView 網站預設淺色主題，不需要 TradingView 帳號。公司 logo 取自 TradingView 的 logo 圖庫（經由其非官方代號搜尋查詢，失效時只是不顯示 logo）。圖上不標示資料來源，需要時請在簡報註明。Yahoo 資料條款為個人用途，用於正式對客戶文件前請確認法遵要求。詳見 [ADR 0001](docs/adr/0001-lightweight-charts-with-yfinance.md)。
 
 ## 開發
 

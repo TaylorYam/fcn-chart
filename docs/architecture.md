@@ -9,7 +9,7 @@ FCN Chart 是本機執行的小工具：輸入美股／日股代號與 KO/K/KI �
 ## System context
 
 ```
-使用者瀏覽器 ──HTTP──▶ 本機 FastAPI (127.0.0.1:8765) ──yfinance──▶ Yahoo Finance
+使用者瀏覽器 ──HTTP──▶ 本機 FastAPI (127.0.0.1:8765) ──chart API──▶ Yahoo Finance
                                    └──logo──▶ TradingView 代號搜尋／logo 圖庫
      │
      └──CDN──▶ unpkg (Lightweight Charts) / cdnjs (JSZip)
@@ -20,7 +20,7 @@ FCN Chart 是本機執行的小工具：輸入美股／日股代號與 KO/K/KI �
 | 模組 | 職責 |
 | --- | --- |
 | `src/fcn_chart/symbols.py` | 使用者輸入 → Yahoo 代號（4 碼數字開頭補 `.T`；`BRK.B` → `BRK-B`）；表格顯示代號（日股 `代號 JT`） |
-| `src/fcn_chart/data.py` | 抓約 400 天日K、排除交易所當日未收盤（收盤後 20 分鐘緩衝）的K棒 |
+| `src/fcn_chart/data.py` | 直接呼叫 Yahoo `v8/finance/chart` 抓約 400 天日K（單一請求、不需 crumb）、排除交易所當日未收盤（收盤後 20 分鐘緩衝）的K棒 |
 | `src/fcn_chart/levels.py` | KO/K1/K2/KI：期初價 × % → 價位；美股 2 位、日股整數，四捨五入；單一履約價標示為 K |
 | `src/fcn_chart/logos.py` | 公司 logo：以 TradingView 代號搜尋查 logoid，抓 `s3-symbol-logo.tradingview.com` 的 SVG，記憶體快取 |
 | `src/fcn_chart/app.py` | `GET /` 頁面、`GET /api/chart?symbol=&ko=&k1=&k2=&ki=`、`GET /api/logo?symbol=&exchange=`（SVG 加 CSP 標頭） |
@@ -38,8 +38,9 @@ FCN Chart 是本機執行的小工具：輸入美股／日股代號與 KO/K/KI �
 - 本機模式：雙擊 `start.bat`（= `uv run fcn-chart`），只綁定 127.0.0.1，自動開啟瀏覽器。
 - 內網共用模式：雙擊 `start-server.bat`，先在 `main` 上 `git pull --ff-only` 自動更新，再以 `APP_HOST=0.0.0.0` 啟動，同事以 `http://<主機 IP>:8765/` 連線。無登入機制，只在公司內網使用；防火牆規則由使用者／IT 設定。
 - 環境變數：`APP_PORT`（預設 8765）、`APP_HOST`（預設 127.0.0.1）。
-- 公司網路的 HTTPS 檢查：啟動檔設定 `UV_NATIVE_TLS=1`；yfinance 連線使用 certifi＋Windows 憑證存放區合併的 PEM（`network.ca_bundle_path`，寫在系統暫存資料夾），並使用環境變數或 Windows 設定的 proxy（`network.system_proxies`）。
-- 錯誤分類：yfinance 例外不吞掉（`hide_exceptions = False`）；代號不存在／HTTP 404 → 404「查無資料」，連線失敗 → 502「無法連線到 Yahoo：<原因>」，限流 → 502。
+- 公司網路的 HTTPS 檢查：啟動檔設定 `UV_NATIVE_TLS=1`；抓行情（curl_cffi）使用 certifi＋Windows 憑證存放區合併的 PEM（`network.ca_bundle_path`，寫在系統暫存資料夾），並使用環境變數或 Windows 設定的 proxy（`network.system_proxies`）。
+- urllib（logo）使用關閉 `VERIFY_X509_STRICT` 的 SSL context（`network.ssl_context`）：Python 3.13+ 的嚴格模式會拒絕公司自簽根憑證。
+- 錯誤分類：HTTP 404／無結果 → 404「查無資料」；連線失敗 → 502「無法連線到 Yahoo：<原因>」；HTTP 429 → 502「暫時限制查詢次數」。
 - 診斷：`diagnose.bat`（`python -m fcn_chart.diagnose`）列出 proxy、憑證與各種連線方式的結果，存成 `diagnose.txt`。
 
 ## Quality attributes and constraints
@@ -50,4 +51,5 @@ FCN Chart 是本機執行的小工具：輸入美股／日股代號與 KO/K/KI �
 
 ## Important decisions
 
-- [0001: 以 yfinance 資料搭配 TradingView Lightweight Charts 作圖](adr/0001-lightweight-charts-with-yfinance.md)
+- [0001: 以 yfinance 資料搭配 TradingView Lightweight Charts 作圖](adr/0001-lightweight-charts-with-yfinance.md)（資料取得部分已由 0002 取代）
+- [0002: 直接呼叫 Yahoo chart API，取代 yfinance](adr/0002-yahoo-chart-api-instead-of-yfinance.md)

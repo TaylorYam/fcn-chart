@@ -1,20 +1,24 @@
-"""行情資料：用 yfinance 抓日K，並排除尚未收盤的當日K棒。"""
+"""行情資料：直接呼叫 Yahoo 的 chart API 抓日K，並排除尚未收盤的當日K棒。
+
+不使用 yfinance：它在抓K線前會先向 Yahoo 取 cookie／crumb，這一步在公司網路
+（共用出口、HTTPS 檢查）常被 Yahoo 以 HTTP 429 拒絕。chart API 單一請求、不需 crumb，
+一次就有K線、幣別、交易所、時區與公司名稱。
+"""
 
 import threading
 import time as clock
+import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-import yfinance as yf
 from curl_cffi import requests as curl_requests
-from yfinance import exceptions as yf_errors
 
 from fcn_chart.network import ca_bundle_path, system_proxies
 
-# yfinance 預設會吞掉例外、只回傳空資料，連線失敗也會變成「查無資料」；改為拋出例外再分類。
-yf.config.debug.hide_exceptions = False
+CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+TIMEOUT_SECONDS = 20
 
 # 交易所收盤時間（交易所當地時間）。收盤後再多等一段緩衝，讓 Yahoo 的日K定稿。
 MARKET_CLOSE = {
@@ -109,27 +113,75 @@ def to_candles(df: pd.DataFrame) -> list[Candle]:
 
 
 def fetch_history(symbol: str, now: datetime | None = None) -> PriceHistory:
-    """抓日K。auto_adjust=False：價格只還原分割、不還原股息（等同 TradingView 預設）。"""
+    """抓日K。chart API 的開高低收只還原分割、不還原股息（等同 TradingView 預設）。"""
     now = now or datetime.now(tz=ZoneInfo("UTC"))
-    ticker = yf.Ticker(symbol, session=yahoo_session())
-    start = (now - timedelta(days=HISTORY_DAYS)).date()
-    df = download_daily(ticker, symbol, start.isoformat())
-    if df.empty:
-        raise SymbolNotFoundError(f"查無資料：{symbol}")
+    start = now - timedelta(days=HISTORY_DAYS)
+    return parse_chart(symbol, request_chart(symbol, start, now), now)
 
-    timezone = str(df.index.tz) if df.index.tz else _fast_info(ticker, "timezone", "UTC")
-    candles = to_candles(drop_unfinished_bar(df, timezone, now))
+
+def request_chart(symbol: str, start: datetime, end: datetime) -> dict:
+    params = {
+        "period1": int(start.timestamp()),
+        "period2": int(end.timestamp()),
+        "interval": "1d",
+        "events": "div,splits",
+    }
+    url = CHART_URL.format(symbol=urllib.parse.quote(symbol, safe=""))
+    try:
+        response = yahoo_session().get(url, params=params, timeout=TIMEOUT_SECONDS)
+    except OSError as exc:
+        # curl_cffi 的錯誤都是 OSError 的子類別：憑證、proxy、被封鎖、逾時。
+        raise DataSourceError(f"無法連線到 Yahoo：{_short(exc)}") from exc
+    if response.status_code == 404:
+        raise SymbolNotFoundError(f"查無資料：{symbol}")
+    if response.status_code == 429:
+        raise DataSourceError("Yahoo 暫時限制查詢次數，請稍後再試")
+    if response.status_code != 200:
+        raise DataSourceError(f"Yahoo 回應異常：HTTP {response.status_code}")
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise DataSourceError("Yahoo 回應格式異常（可能被公司網路攔截）") from exc
+
+
+def parse_chart(symbol: str, payload: dict, now: datetime) -> PriceHistory:
+    results = (payload.get("chart") or {}).get("result") or []
+    if not results or not results[0].get("timestamp"):
+        raise SymbolNotFoundError(f"查無資料：{symbol}")
+    result = results[0]
+    meta = result.get("meta", {})
+    timezone = meta.get("exchangeTimezoneName") or "America/New_York"
+
+    candles = to_candles(drop_unfinished_bar(chart_to_frame(result, timezone), timezone, now))
     if not candles:
         raise SymbolNotFoundError(f"查無已收盤的日K：{symbol}")
 
     return PriceHistory(
         symbol=symbol,
-        name=_display_name(ticker, symbol),
-        exchange=exchange_name(_fast_info(ticker, "exchange", "")),
-        currency=_fast_info(ticker, "currency", "USD").upper(),
+        # shortName 常被截斷（如 "Taiwan Semiconductor Manufactur"），優先用 longName。
+        name=meta.get("longName") or meta.get("shortName") or symbol,
+        exchange=exchange_name(meta.get("exchangeName", "")),
+        currency=(meta.get("currency") or "USD").upper(),
         timezone=timezone,
         candles=candles,
     )
+
+
+def chart_to_frame(result: dict, timezone: str) -> pd.DataFrame:
+    """chart API 結果 → 以交易所當地日期為索引的開高低收量。"""
+    quote = result["indicators"]["quote"][0]
+    blank = [None] * len(result["timestamp"])
+    index = pd.to_datetime(result["timestamp"], unit="s", utc=True).tz_convert(timezone).normalize()
+    columns = {"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"}
+    df = pd.DataFrame(
+        {
+            name: pd.to_numeric(pd.Series(quote.get(key) or blank, dtype="object"))
+            for name, key in columns.items()
+        }
+    )
+    df.index = index
+    # 盤中時最後一根的時間戳是「現在」，正規化成日期後可能與前一筆重複，保留最新的。
+    return df[~df.index.duplicated(keep="last")]
 
 
 _cache: dict[str, tuple[float, PriceHistory]] = {}
@@ -161,21 +213,6 @@ def yahoo_session() -> curl_requests.Session:
     )
 
 
-def download_daily(ticker: yf.Ticker, symbol: str, start: str) -> pd.DataFrame:
-    try:
-        return ticker.history(start=start, interval="1d", auto_adjust=False)
-    except (yf_errors.YFTickerMissingError, yf_errors.YFTzMissingError) as exc:
-        raise SymbolNotFoundError(f"查無資料：{symbol}") from exc
-    except yf_errors.YFRateLimitError as exc:
-        raise DataSourceError("Yahoo 暫時限制查詢次數，請稍後再試") from exc
-    except (OSError, yf_errors.YFException) as exc:
-        # 代號不存在時 Yahoo 回 HTTP 404；其餘 curl_cffi 錯誤（OSError 子類別）
-        # 多半是憑證、proxy 或網站被封鎖。
-        if getattr(getattr(exc, "response", None), "status_code", None) == 404:
-            raise SymbolNotFoundError(f"查無資料：{symbol}") from exc
-        raise DataSourceError(f"無法連線到 Yahoo：{_short(exc)}") from exc
-
-
 def _short(exc: Exception, limit: int = 300) -> str:
     text = " ".join(str(exc).split())
     return text if len(text) <= limit else text[:limit] + "…"
@@ -188,20 +225,3 @@ def _volume(value) -> float:
 
 def exchange_name(code: str) -> str:
     return EXCHANGE_NAMES.get(code.upper(), code.upper())
-
-
-def _fast_info(ticker: yf.Ticker, key: str, default: str) -> str:
-    try:
-        return ticker.fast_info[key] or default
-    except Exception:
-        return default
-
-
-def _display_name(ticker: yf.Ticker, fallback: str) -> str:
-    # info 偶爾會失敗或很慢；拿不到名稱不影響作圖。
-    try:
-        info = ticker.info
-        # shortName 常被截斷（如 "Taiwan Semiconductor Manufactur"），優先用 longName。
-        return info.get("longName") or info.get("shortName") or fallback
-    except Exception:
-        return fallback

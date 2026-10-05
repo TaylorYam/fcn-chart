@@ -6,7 +6,6 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn>=0.30",
-    "yfinance>=0.2.50",
     "curl-cffi>=0.7",
     "certifi",
     "pandas>=2.2",
