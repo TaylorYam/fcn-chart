@@ -25,9 +25,11 @@ const LINE_WIDTH = 2;
 const DEFAULT_RANGE = '12';
 
 // 匯出圖：PPT 圖片 32.2 × 14.4 公分。版面以 96 DPI（約 1217 × 544 px）排，
-// 實際以 2 倍解析度輸出（192 DPI），並在 PNG 寫入 DPI，插入 PPT 時就是這個尺寸。
+// 實際以 3 倍解析度輸出（288 DPI），並在 PNG 寫入 DPI，下載後插入 PPT 時就是這個尺寸。
+// 複製到剪貼簿時瀏覽器會重新編碼、丟掉 DPI，PPT 會把圖縮成投影片寬（33.87 公分），
+// 需在 PPT 手動調整大小；使用者決定解析度優先，所以複製同樣用 3 倍解析度。
 const PPT_CM = { width: 32.2, height: 14.4 };
-const EXPORT_SCALE = 2;
+const EXPORT_SCALE = 3;
 const EXPORT_DPI = 96 * EXPORT_SCALE;
 const EXPORT = {
   width: Math.round((PPT_CM.width / 2.54) * EXPORT_DPI),
@@ -378,6 +380,17 @@ function crc32(bytes) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
+// 剪貼簿的 SVG 版（實驗）：內含 3 倍解析度的 PNG，並以公分指定尺寸。
+// PNG 經剪貼簿會丟掉 DPI；若 PPT 採用 SVG，就能同時有正確尺寸與解析度。
+function clipboardSvg(canvas) {
+  const src = canvas.toDataURL('image/png');
+  const markup =
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +
+    `width="${PPT_CM.width}cm" height="${PPT_CM.height}cm" viewBox="0 0 ${canvas.width} ${canvas.height}">` +
+    `<image width="${canvas.width}" height="${canvas.height}" xlink:href="${src}"/></svg>`;
+  return new Blob([markup], { type: 'image/svg+xml' });
+}
+
 function fileName(data) {
   return `${data.ticker.replace(' ', '_')}_FCN_${data.ref_date}.png`;
 }
@@ -459,9 +472,11 @@ function fillCard(card, data) {
   $('.copy', card.root).addEventListener('click', async () => {
     try {
       // ClipboardItem 接受 Promise，讓寫入剪貼簿仍算在這次點擊的使用者操作內。
-      const blob = renderExportCanvas(card).then(canvasToBlob);
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      setStatus(card, '已複製，可直接在 PPT 按 Ctrl+V 貼上。');
+      const canvas = renderExportCanvas(card);
+      const items = { 'image/png': canvas.then(canvasToBlob) };
+      if (ClipboardItem.supports?.('image/svg+xml')) items['image/svg+xml'] = canvas.then(clipboardSvg);
+      await navigator.clipboard.write([new ClipboardItem(items)]);
+      setStatus(card, `已複製，可在 PPT 按 Ctrl+V 貼上（貼上後請調整大小為 ${PPT_CM.width} × ${PPT_CM.height} 公分）。`);
     } catch (err) {
       setStatus(card, `複製失敗：${err.message}（請改用下載 PNG）`, true);
     }
