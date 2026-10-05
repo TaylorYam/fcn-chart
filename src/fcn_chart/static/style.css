@@ -131,7 +131,7 @@ main {
   border-bottom: 1px solid #000;
 }
 .fcn-table th { background: #e7e6e6; font-weight: 700; padding: 6px 14px; white-space: nowrap; }
-.fcn-table td { padding: 6px 14px; white-space: nowrap; }
+.fcn-table td { padding: 6px 14px; white-space: nowrap; font-weight: 700; }
 .legend-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; line-height: 22px; }
 .legend-row span { display: inline-flex; gap: 2px; }
 .legend-row b { font-weight: 400; color: var(--legend-color); }

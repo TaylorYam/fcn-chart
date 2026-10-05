@@ -156,7 +156,12 @@ function tableModel(data) {
   const strikes = data.levels.filter((l) => l.name !== 'KO');
   return {
     headers: ['連結標的', '參考最新價', ...strikes.map((l) => `${l.label} (${fmtPct(l.pct)})`)],
-    row: [data.ticker, fmtPrice(data.ref_close, d), ...strikes.map((l) => fmtPrice(l.price, d))],
+    // 價位數字用對應線條的顏色，方便與圖上的線對照。
+    row: [
+      { text: data.ticker },
+      { text: fmtPrice(data.ref_close, d) },
+      ...strikes.map((l) => ({ text: fmtPrice(l.price, d), color: LEVEL_STYLE[l.name].color })),
+    ],
   };
 }
 
@@ -165,7 +170,11 @@ function renderTableHtml(table, model) {
   const head = table.createTHead().insertRow();
   for (const text of model.headers) head.appendChild(document.createElement('th')).textContent = text;
   const body = table.createTBody().insertRow();
-  for (const text of model.row) body.insertCell().textContent = text;
+  for (const { text, color } of model.row) {
+    const cell = body.insertCell();
+    cell.textContent = text;
+    if (color) cell.style.color = color;
+  }
 }
 
 // 依畫面上表格的實際排版（CSS px）放大 s 倍畫到匯出圖，確保兩者一致。
