@@ -383,6 +383,16 @@ function crc32(bytes) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
+// 剪貼簿的 HTML 版：放 2 倍解析度的圖，並以屬性指定 32.2 × 14.4 公分的顯示尺寸。
+// 貼上的程式若採用 HTML，就能同時有正確尺寸與高解析度；採用 PNG 時則退回 1 倍版。
+async function clipboardHtml(canvas) {
+  const { width, height } = exportSize(1);
+  const src = canvas.toDataURL('image/png');
+  const style = `width:${PPT_CM.width}cm;height:${PPT_CM.height}cm`;
+  const markup = `<img src="${src}" width="${width}" height="${height}" style="${style}">`;
+  return new Blob([markup], { type: 'text/html' });
+}
+
 function fileName(data) {
   return `${data.ticker.replace(' ', '_')}_FCN_${data.ref_date}.png`;
 }
@@ -464,8 +474,9 @@ function fillCard(card, data) {
   $('.copy', card.root).addEventListener('click', async () => {
     try {
       // ClipboardItem 接受 Promise，讓寫入剪貼簿仍算在這次點擊的使用者操作內。
-      const blob = renderExportCanvas(card, CLIPBOARD_SCALE).then((c) => canvasToBlob(c, CLIPBOARD_SCALE));
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      const png = renderExportCanvas(card, CLIPBOARD_SCALE).then((c) => canvasToBlob(c, CLIPBOARD_SCALE));
+      const html = renderExportCanvas(card, DOWNLOAD_SCALE).then(clipboardHtml);
+      await navigator.clipboard.write([new ClipboardItem({ 'text/html': html, 'image/png': png })]);
       setStatus(card, '已複製，可直接在 PPT 按 Ctrl+V 貼上。');
     } catch (err) {
       setStatus(card, `複製失敗：${err.message}（請改用下載 PNG）`, true);
