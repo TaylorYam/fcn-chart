@@ -34,20 +34,27 @@ def client(monkeypatch):
 
 
 def test_chart_returns_levels_from_last_close(client):
-    res = client.get("/api/chart", params={"symbol": "6758", "ko": 100, "k": 80, "ki": 70})
+    res = client.get("/api/chart", params={"symbol": "6758", "ko": 100, "k1": 80, "ki": 70})
     assert res.status_code == 200
     body = res.json()
     assert client.calls == ["6758.T"]
     assert body["ref_date"] == "2026-10-02"
     assert body["ref_close"] == 3753
     assert body["decimals"] == 0
-    assert [(lv["name"], lv["price"]) for lv in body["levels"]] == [
-        ("KO", 3753),
-        ("K", 3002),
-        ("KI", 2627),
+    assert body["ticker"] == "6758 JT"
+    assert [(lv["name"], lv["label"], lv["price"]) for lv in body["levels"]] == [
+        ("KO", "KO", 3753),
+        ("K1", "K", 3002),
+        ("KI", "KI", 2627),
     ]
     assert body["exchange"] == "TSE"
     assert body["candles"][-1]["volume"] == 1_500_000
+
+
+def test_chart_two_strikes(client):
+    params = {"symbol": "6758", "ko": 100, "k1": 80, "k2": 75, "ki": 60}
+    body = client.get("/api/chart", params=params).json()
+    assert [lv["label"] for lv in body["levels"]] == ["KO", "K1", "K2", "KI"]
 
 
 def test_chart_omits_blank_levels(client):

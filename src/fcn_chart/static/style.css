@@ -34,7 +34,7 @@ body {
 
 @media (max-width: 640px) {
   .toolbar, main { padding-left: 16px; padding-right: 16px; }
-  .field.symbols, .field.symbols input { width: 100%; }
+  .sym-inputs { flex-wrap: wrap; }
   .card-foot { flex-wrap: wrap; }
 }
 
@@ -54,7 +54,10 @@ form {
   border-radius: 6px;
   font: inherit;
 }
-.field.symbols input { width: 280px; }
+fieldset.field { margin: 0; padding: 0; border: 0; min-width: 0; }
+fieldset.field legend { padding: 0; margin-bottom: 4px; font-size: 12px; color: var(--muted); }
+.sym-inputs { display: flex; gap: 6px; }
+.field .sym { width: calc(6ch + 22px); text-transform: uppercase; }
 .field.pct input { width: 80px; }
 
 button {
@@ -99,21 +102,36 @@ main {
 .card-head .ticker { font-size: 18px; }
 .card-head .ref { font-weight: 600; white-space: nowrap; }
 
-/* 圖表與匯出圖同為 16:9 */
+/* 圖表與匯出圖同比例：PPT 圖片 32.2 × 14.4 公分 */
 .chart-wrap { position: relative; }
-.chart { width: 100%; aspect-ratio: 16 / 9; }
+.chart { width: 100%; aspect-ratio: 32.2 / 14.4; }
 
-/* TradingView 左上角圖例 */
-.legend {
+/* 左上角：TradingView 圖例＋FCN 參數表格 */
+.overlay {
   position: absolute;
   top: 8px;
   left: 12px;
   z-index: 4;
   pointer-events: none;
+}
+.legend {
   font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif;
   font-size: 13px;
   color: #131722;
 }
+.fcn-table {
+  margin-top: 6px;
+  border-collapse: collapse;
+  background: #fff;
+  font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  font-size: 14px;
+  color: #000;
+  text-align: center;
+  border-top: 2px solid #000;
+  border-bottom: 1px solid #000;
+}
+.fcn-table th { background: #e7e6e6; font-weight: 700; padding: 6px 14px; white-space: nowrap; }
+.fcn-table td { padding: 6px 14px; white-space: nowrap; }
 .legend-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; line-height: 22px; }
 .legend-row span { display: inline-flex; gap: 2px; }
 .legend-row b { font-weight: 400; color: var(--legend-color); }

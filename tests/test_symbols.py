@@ -1,6 +1,6 @@
 import pytest
 
-from fcn_chart.symbols import InvalidSymbolError, normalize_symbol, split_symbols
+from fcn_chart.symbols import InvalidSymbolError, display_ticker, normalize_symbol
 
 
 @pytest.mark.parametrize(
@@ -25,5 +25,9 @@ def test_normalize_symbol_rejects_invalid(raw):
         normalize_symbol(raw)
 
 
-def test_split_symbols_handles_separators_and_dedup():
-    assert split_symbols("TSM, NVDA，6758  tsm;AVGO") == ["TSM", "NVDA", "6758", "AVGO"]
+@pytest.mark.parametrize(
+    ("yahoo", "expected"),
+    [("MSFT", "MSFT"), ("BRK-B", "BRK.B"), ("6758.T", "6758 JT"), ("130A.T", "130A JT")],
+)
+def test_display_ticker(yahoo, expected):
+    assert display_ticker(yahoo) == expected
