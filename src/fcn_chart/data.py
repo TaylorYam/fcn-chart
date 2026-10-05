@@ -1,0 +1,116 @@
+"""行情資料：用 yfinance 抓日K，並排除尚未收盤的當日K棒。"""
+
+from dataclasses import dataclass
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+import pandas as pd
+import yfinance as yf
+
+# 交易所收盤時間（交易所當地時間）。收盤後再多等一段緩衝，讓 Yahoo 的日K定稿。
+MARKET_CLOSE = {
+    "America/New_York": time(16, 0),
+    "Asia/Tokyo": time(15, 30),
+}
+SETTLE_BUFFER = timedelta(minutes=20)
+
+# 抓略多於 1 年，確保「1Y」區間有完整約 252 根K棒。
+HISTORY_DAYS = 400
+
+
+class SymbolNotFoundError(LookupError):
+    pass
+
+
+@dataclass(frozen=True)
+class Candle:
+    time: str  # YYYY-MM-DD
+    open: float
+    high: float
+    low: float
+    close: float
+
+
+@dataclass(frozen=True)
+class PriceHistory:
+    symbol: str
+    name: str
+    currency: str
+    timezone: str
+    candles: list[Candle]
+
+    @property
+    def ref_candle(self) -> Candle:
+        return self.candles[-1]
+
+
+def drop_unfinished_bar(df: pd.DataFrame, timezone: str, now: datetime) -> pd.DataFrame:
+    """若最後一根K棒是交易所「今天」且尚未收盤（含緩衝），就把它拿掉。"""
+    if df.empty:
+        return df
+
+    tz = ZoneInfo(timezone)
+    local_now = now.astimezone(tz)
+    last_date = pd.Timestamp(df.index[-1]).date()
+    if last_date != local_now.date():
+        return df
+
+    close_time = MARKET_CLOSE.get(timezone, time(16, 0))
+    settled_at = datetime.combine(local_now.date(), close_time, tzinfo=tz) + SETTLE_BUFFER
+    if local_now < settled_at:
+        return df.iloc[:-1]
+    return df
+
+
+def to_candles(df: pd.DataFrame) -> list[Candle]:
+    df = df.dropna(subset=["Open", "High", "Low", "Close"])
+    return [
+        Candle(
+            time=pd.Timestamp(idx).strftime("%Y-%m-%d"),
+            open=float(row["Open"]),
+            high=float(row["High"]),
+            low=float(row["Low"]),
+            close=float(row["Close"]),
+        )
+        for idx, row in df.iterrows()
+    ]
+
+
+def fetch_history(symbol: str, now: datetime | None = None) -> PriceHistory:
+    """抓日K。auto_adjust=False：價格只還原分割、不還原股息（等同 TradingView 預設）。"""
+    now = now or datetime.now(tz=ZoneInfo("UTC"))
+    ticker = yf.Ticker(symbol)
+    start = (now - timedelta(days=HISTORY_DAYS)).date()
+    df = ticker.history(start=start.isoformat(), interval="1d", auto_adjust=False)
+    if df.empty:
+        raise SymbolNotFoundError(f"查無資料：{symbol}")
+
+    timezone = str(df.index.tz) if df.index.tz else _fast_info(ticker, "timezone", "UTC")
+    candles = to_candles(drop_unfinished_bar(df, timezone, now))
+    if not candles:
+        raise SymbolNotFoundError(f"查無已收盤的日K：{symbol}")
+
+    return PriceHistory(
+        symbol=symbol,
+        name=_display_name(ticker, symbol),
+        currency=_fast_info(ticker, "currency", "USD").upper(),
+        timezone=timezone,
+        candles=candles,
+    )
+
+
+def _fast_info(ticker: yf.Ticker, key: str, default: str) -> str:
+    try:
+        return ticker.fast_info[key] or default
+    except Exception:
+        return default
+
+
+def _display_name(ticker: yf.Ticker, fallback: str) -> str:
+    # info 偶爾會失敗或很慢；拿不到名稱不影響作圖。
+    try:
+        info = ticker.info
+        # shortName 常被截斷（如 "Taiwan Semiconductor Manufactur"），優先用 longName。
+        return info.get("longName") or info.get("shortName") or fallback
+    except Exception:
+        return fallback

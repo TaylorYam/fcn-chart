@@ -1,43 +1,43 @@
-# AI-Assisted Project Template
+# FCN Chart
 
-A GitHub-first starting point for projects built by people and AI coding agents. It provides a lightweight contribution workflow, issue and pull request forms, a starter CI check, and guidance for keeping credentials and local runtime data out of Git.
+FCN 標的快速作圖：輸入標的代號與 KO/K/KI 百分比，在 TradingView 風格的日K線圖上畫出對應水平線，一鍵下載 PNG 或複製圖片直接貼進 PPT。
 
-## Start a project from this template
+## 使用方式
 
-1. On GitHub, open this repository and select **Use this template → Create a new repository**. Choose the new repository's owner, name, visibility, and other settings.
-2. Clone the new repository and open it in your editor or coding agent.
-3. Create a **Project bootstrap** issue describing the purpose, users, chosen stack, and first deliverable.
-4. Ask the coding agent to read `AGENTS.md`, this README, `.github/`, and `docs/`; inspect the repository; then propose project-specific changes before editing.
-5. Tailor `.gitignore`, `.env.example`, `docs/architecture.md`, and `.github/workflows/ci.yml` to the project. Add tests and stack-specific quality checks before feature work.
-6. Review and merge the bootstrap pull request, then begin feature work through issues and pull requests.
+1. 雙擊 `start.bat`。第一次會自動安裝相依套件，之後瀏覽器會開啟 <http://127.0.0.1:8765/>。
+2. 輸入標的代號，可一次多檔，用逗號或空白分隔：
+   - 美股：`TSM`、`NVDA`、`BRK.B`
+   - 日股：4 碼代號 `6758`（自動視為東證 `6758.T`）
+3. 輸入 KO / K / KI 百分比（預設 100 / 80 / 70）。留空就不畫該線。
+4. 按「產生圖表」。每張圖可切換 1M / 3M / 6M / 1Y，再按「下載 PNG」或「複製圖片」（到 PPT 按 Ctrl+V），或在上方按「全部下載（zip）」。
 
-If GitHub does not show **Use this template**, an owner can enable it in **Settings → General → Template repository**.
+### 計算規則
 
-## Contribution flow
+- **期初價（100%）**：最後一根**已收盤**日K的收盤價。交易所盤中（或收盤後 20 分鐘內）會排除當天未完成的K棒。
+- **價格**：只還原分割、不還原股息，與 TradingView 預設顯示相同。
+- **價位**：期初價 × %，美股四捨五入到小數 2 位，日股到整數日圓。
 
-For planned changes, use:
+### 資料來源
 
-`Issue → branch or worktree → plan → implementation → validation → commit and push → pull request → review and CI → merge`
+行情來自 Yahoo Finance（透過 yfinance），圖表使用開源的 TradingView Lightweight Charts，不需要 TradingView 帳號。圖上註腳會標示兩者。Yahoo 資料條款為個人用途，用於正式對客戶文件前請確認法遵要求。詳見 [ADR 0001](docs/adr/0001-lightweight-charts-with-yfinance.md)。
 
-Keep `main` as the stable integration branch. Make routine changes on a task branch and merge them through a reviewed pull request. Small changes still follow the same branch and review path; the amount of planning and testing should match their scope.
+## 開發
 
-Use the issue templates for tasks, bugs, and architecture decision proposals. Link the issue from the pull request so the intent and implementation stay connected.
+需求：Python ≥ 3.11、[uv](https://docs.astral.sh/uv/)。
 
-Agents should follow the Work Routing in `AGENTS.md` before creating an Issue. Agent conversations default to plain Traditional Chinese (Taiwan usage); agent-created GitHub Issues default to Traditional Chinese.
+```bash
+uv sync
+uv run pytest
+uv run ruff check . && uv run ruff format --check .
+uv run fcn-chart
+```
 
-## Repository guide
+架構說明見 [docs/architecture.md](docs/architecture.md)。
 
-- `AGENTS.md` — shared AI development policy for Claude Code, Codex, and human contributors.
-- `CLAUDE.md` — Claude Code entry point that imports `AGENTS.md`.
-- `.github/ISSUE_TEMPLATE/` — task, bug, and architecture decision forms.
-- `.github/pull_request_template.md` — review checklist and validation record.
-- `.github/workflows/ci.yml` — starter whitespace check; add the project's formatter, tests, type checks, and build here.
-- `.gitignore` — common generated files, local configuration, credentials, and runtime data exclusions.
-- `.env.example` — names and safe placeholders for environment variables; never put real secrets here.
-- `docs/architecture.md` — current system overview and pointers to important design choices.
-- `docs/adr/` — durable records of significant architecture decisions.
+## 協作流程
 
-## Template maintenance
+AI 協作規範見 [AGENTS.md](AGENTS.md)。一般變更流程：
 
-Keep this repository stack-neutral. When changing the workflow, update the relevant source file and this guide if the change affects how a new project is bootstrapped. Use Git tags such as `v1.0.0` to identify template versions used by new repositories.
+`Issue → branch → plan → implementation → validation → commit and push → pull request → review and CI → merge`
 
+`main` 保持穩定，變更走 task branch 與 PR。

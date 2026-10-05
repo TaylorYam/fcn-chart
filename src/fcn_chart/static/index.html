@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FCN Chart</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+  <header class="toolbar">
+    <h1>FCN Chart</h1>
+    <form id="form" autocomplete="off">
+      <label class="field symbols">
+        <span>標的代號</span>
+        <input id="symbols" name="symbols" placeholder="TSM, NVDA, 6758" required>
+      </label>
+      <label class="field pct"><span>KO %</span><input id="ko" type="number" step="any" min="0" value="100"></label>
+      <label class="field pct"><span>K %</span><input id="k" type="number" step="any" min="0" value="80"></label>
+      <label class="field pct"><span>KI %</span><input id="ki" type="number" step="any" min="0" value="70"></label>
+      <button type="submit" class="primary">產生圖表</button>
+      <button type="button" id="download-all" disabled>全部下載（zip）</button>
+    </form>
+    <p class="hint">美股輸入代號（TSM），日股輸入 4 碼（6758）。百分比留空就不畫該線。期初價＝最後一根已收盤日K的收盤價。</p>
+  </header>
+
+  <main id="cards"></main>
+
+  <template id="card-template">
+    <section class="card">
+      <div class="card-head">
+        <div class="title">
+          <strong class="ticker"></strong>
+          <span class="name"></span>
+        </div>
+        <div class="ref"></div>
+      </div>
+      <div class="chart"></div>
+      <div class="card-foot">
+        <div class="ranges">
+          <button type="button" data-bars="22">1M</button>
+          <button type="button" data-bars="65">3M</button>
+          <button type="button" data-bars="130">6M</button>
+          <button type="button" data-bars="252" class="active">1Y</button>
+        </div>
+        <span class="source"></span>
+        <div class="actions">
+          <button type="button" class="copy">複製圖片</button>
+          <button type="button" class="download primary">下載 PNG</button>
+        </div>
+      </div>
+      <p class="status"></p>
+    </section>
+  </template>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
