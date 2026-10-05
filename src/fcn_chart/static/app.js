@@ -20,6 +20,8 @@ const LEVEL_STYLE = {
   KI: { color: '#dc2626', lineStyle: LightweightCharts.LineStyle.Dashed },
 };
 const LINE_WIDTH = 2;
+// 標籤畫在左側的價位線：KO 通常是 100%（＝最新收盤價），放右側會擋住最新的K棒。
+const LEFT_LABEL_LEVELS = new Set(['KO']);
 
 // 區間按鈕：月數，或 'YTD'。
 const DEFAULT_RANGE = '12';
@@ -298,17 +300,64 @@ function createChart(el, data, s = 1) {
   });
 
   for (const level of data.levels) {
+    const { color, lineStyle } = LEVEL_STYLE[level.name];
+    const title = `${level.label} ${fmtPct(level.pct)}｜${fmtPrice(level.price, data.decimals)}`;
+    const left = LEFT_LABEL_LEVELS.has(level.name);
     candles.createPriceLine({
       price: level.price,
-      color: LEVEL_STYLE[level.name].color,
-      lineStyle: LEVEL_STYLE[level.name].lineStyle,
+      color,
+      lineStyle,
       lineWidth: LINE_WIDTH * s,
       axisLabelVisible: true,
-      title: `${level.label} ${fmtPct(level.pct)}｜${fmtPrice(level.price, data.decimals)}`,
+      title: left ? '' : title,
     });
+    if (left) candles.attachPrimitive(new LeftLineLabel(level.price, title, color, TV.fontSize * s));
   }
 
   return { chart, candles };
+}
+
+// 價位線的左側標籤（Lightweight Charts 內建標籤只能在右側）。
+// 以 series primitive 畫在圖表 canvas 上，takeScreenshot 匯出時也會包含。
+class LeftLineLabel {
+  constructor(price, text, color, fontSize) {
+    Object.assign(this, { price, text, color, fontSize });
+    const label = this;
+    this.views = [{ renderer: () => ({ draw: (target) => label.draw(target) }) }];
+  }
+
+  attached({ series }) {
+    this.series = series;
+  }
+
+  detached() {
+    this.series = null;
+  }
+
+  paneViews() {
+    return this.views;
+  }
+
+  draw(target) {
+    const y = this.series?.priceToCoordinate(this.price);
+    if (y == null) return;
+    target.useMediaCoordinateSpace(({ context: ctx }) => {
+      const f = this.fontSize;
+      const padX = f * 0.5;
+      const height = Math.round(f * 1.5);
+      ctx.font = `${f}px ${TV.font}`;
+      const width = ctx.measureText(this.text).width + padX * 2;
+      const x = f * 0.5;
+      const top = Math.round(y - height / 2);
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.roundRect(x, top, width, height, f / 6);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.text, x + padX, top + height / 2 + 0.5);
+    });
+  }
 }
 
 // 只載入區間內的K棒並固定左邊界：Lightweight Charts 只有在左邊界固定時，
