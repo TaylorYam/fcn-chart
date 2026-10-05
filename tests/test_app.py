@@ -27,6 +27,7 @@ def client(monkeypatch):
         )
 
     monkeypatch.setattr(app_module.data, "fetch_history", fake_fetch)
+    data.clear_cache()
     test_client = TestClient(app_module.app)
     test_client.calls = calls
     return test_client

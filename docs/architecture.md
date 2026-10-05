@@ -28,13 +28,14 @@ FCN Chart 是本機執行的小工具：輸入美股／日股代號與 KO/K/KI �
 
 ## Data and state
 
-無資料庫、無持久化。每次請求即時向 Yahoo 抓資料。瀏覽器 `localStorage` 只記住上次輸入的代號與百分比。
+無資料庫、無持久化。行情向 Yahoo 即時抓取，同一代號在記憶體快取 15 分鐘（`data.get_history`），服務重啟即清空。瀏覽器 `localStorage` 只記住上次輸入的代號與百分比。
 
 ## Runtime and deployment
 
 - 本機 Windows，Python ≥ 3.11，以 `uv` 管理相依套件。
-- 啟動：雙擊 `start.bat`（= `uv run fcn-chart`），自動開啟瀏覽器。
-- 連接埠：環境變數 `APP_PORT`，預設 8765；只綁定 127.0.0.1。
+- 本機模式：雙擊 `start.bat`（= `uv run fcn-chart`），只綁定 127.0.0.1，自動開啟瀏覽器。
+- 內網共用模式：雙擊 `start-server.bat`，先在 `main` 上 `git pull --ff-only` 自動更新，再以 `APP_HOST=0.0.0.0` 啟動，同事以 `http://<主機 IP>:8765/` 連線。無登入機制，只在公司內網使用；防火牆規則由使用者／IT 設定。
+- 環境變數：`APP_PORT`（預設 8765）、`APP_HOST`（預設 127.0.0.1）。
 
 ## Quality attributes and constraints
 
