@@ -25,11 +25,11 @@ const LINE_WIDTH = 2;
 const DEFAULT_RANGE = '12';
 
 // 匯出圖：PPT 圖片 32.2 × 14.4 公分。版面以 96 DPI（約 1217 × 544 px）排，
-// 實際以 2 倍解析度輸出（192 DPI），並在 PNG 寫入 DPI，下載後插入 PPT 時就是這個尺寸。
+// 實際以 3 倍解析度輸出（288 DPI），並在 PNG 寫入 DPI，下載後插入 PPT 時就是這個尺寸。
 // 複製到剪貼簿時瀏覽器會重新編碼、丟掉 DPI，PPT 會把圖縮成投影片寬（33.87 公分），
-// 需在 PPT 手動調整大小；使用者決定解析度優先，所以複製同樣用 2 倍解析度。
+// 需在 PPT 手動調整大小；使用者決定解析度優先，所以複製同樣用 3 倍解析度。
 const PPT_CM = { width: 32.2, height: 14.4 };
-const EXPORT_SCALE = 2;
+const EXPORT_SCALE = 3;
 const EXPORT_DPI = 96 * EXPORT_SCALE;
 const EXPORT = {
   width: Math.round((PPT_CM.width / 2.54) * EXPORT_DPI),
@@ -380,7 +380,7 @@ function crc32(bytes) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-// 剪貼簿的 SVG 版（實驗）：內含 2 倍解析度的 PNG，並以公分指定尺寸。
+// 剪貼簿的 SVG 版（實驗）：內含 3 倍解析度的 PNG，並以公分指定尺寸。
 // PNG 經剪貼簿會丟掉 DPI；若 PPT 採用 SVG，就能同時有正確尺寸與解析度。
 function clipboardSvg(canvas) {
   const src = canvas.toDataURL('image/png');
