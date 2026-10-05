@@ -136,6 +136,7 @@ main {
 .legend-row span { display: inline-flex; gap: 2px; }
 .legend-row b { font-weight: 400; color: var(--legend-color); }
 .legend-title { font-weight: 500; margin-right: 2px; }
+.legend-logo { width: 18px; height: 18px; border-radius: 50%; align-self: center; }
 
 .card-foot {
   display: flex;

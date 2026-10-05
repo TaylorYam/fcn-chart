@@ -23,7 +23,7 @@
 
 ## Consequences
 
-- 不需 TradingView 帳號，不連 tradingview.com。
+- 不需 TradingView 帳號；行情不來自 tradingview.com。唯一例外是公司 logo（#11）：使用者要求與 TradingView 1:1，後端以其非官方代號搜尋查 logoid 並抓 logo 圖庫的 SVG，只取 logo、結果快取；介面失效時僅不顯示 logo。
 - 圖上只有 TV logo、沒有標示資料來源，看圖者可能以為資料來自 TradingView；需要時由簡報本身註明來源。
 - 資料準確度取決於 Yahoo Finance；Yahoo 條款為個人用途，若要放進正式對客戶簡報需確認法遵要求。資料層集中在 `src/fcn_chart/data.py`，日後可換成授權資料源。
 - 前端從 CDN 載入 Lightweight Charts 與 JSZip，需要網路連線。
