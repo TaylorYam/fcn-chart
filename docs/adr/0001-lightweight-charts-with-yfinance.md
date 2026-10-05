@@ -1,6 +1,6 @@
 # 0001: 以 yfinance 資料搭配 TradingView Lightweight Charts 作圖
 
-- Status: Accepted
+- Status: Accepted（資料取得部分 Superseded by [0002](0002-yahoo-chart-api-instead-of-yfinance.md)）
 - Date: 2026-10-05
 
 ## Context

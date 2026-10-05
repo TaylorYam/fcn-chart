@@ -13,7 +13,6 @@ from pathlib import Path
 
 import certifi
 import curl_cffi
-import yfinance as yf
 from curl_cffi import requests as curl_requests
 
 from fcn_chart import data, network
@@ -50,7 +49,7 @@ def check(name: str, func: Callable[[], str]) -> bool:
 
 def via_urllib(url: str) -> str:
     request = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(request, timeout=15) as response:
+    with urllib.request.urlopen(request, timeout=15, context=network.ssl_context()) as response:
         return f"HTTP {response.status}，{len(response.read())} bytes"
 
 
@@ -76,7 +75,7 @@ def windows_pac() -> str:
 def main() -> None:
     out("== FCN Chart 連線診斷 ==")
     out(f"Python {sys.version.split()[0]}｜{platform.platform()}")
-    out(f"yfinance {yf.__version__}｜curl_cffi {curl_cffi.__version__}")
+    out(f"curl_cffi {curl_cffi.__version__}")
     out()
     out("-- Proxy --")
     out(f"環境變數：{urllib.request.getproxies_environment() or '（無）'}")
@@ -92,7 +91,7 @@ def main() -> None:
     out(f"合併憑證檔：{bundle}")
     out()
     out("-- Yahoo（行情） --")
-    check("urllib（Windows 憑證＋系統 proxy）", lambda: via_urllib(YAHOO_URL))
+    check("urllib（Windows 憑證＋系統 proxy，非嚴格模式）", lambda: via_urllib(YAHOO_URL))
     check("curl_cffi（合併憑證＋程式採用的 proxy）", lambda: via_curl(YAHOO_URL, bundle, proxies))
     check("curl_cffi（只用 certifi）", lambda: via_curl(YAHOO_URL, certifi.where(), proxies))
     if proxies:

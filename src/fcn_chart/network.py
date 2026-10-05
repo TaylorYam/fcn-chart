@@ -1,8 +1,10 @@
-"""網路設定：讓 yfinance（curl_cffi）在公司網路也連得上。
+"""網路設定：讓抓行情（curl_cffi）與 logo（urllib）在公司網路也連得上。
 
 - 憑證：公司網路常以自有根憑證做 HTTPS 檢查，該憑證只裝在 Windows 憑證存放區；
   curl_cffi 預設只用 certifi，會出現「憑證簽發者不明」。改用 certifi＋Windows 憑證。
 - Proxy：curl_cffi 只讀環境變數，不讀 Windows 網際網路設定；這裡兩者都讀。
+- urllib：Python 3.13 起預設啟用嚴格憑證檢查（VERIFY_X509_STRICT），
+  公司自簽根憑證常因「Basic Constraints 未標為 critical」被拒；關閉這一項，其餘驗證照舊。
 """
 
 import functools
@@ -57,3 +59,10 @@ def system_proxies() -> dict[str, str]:
             for scheme, url in urllib.request.getproxies_registry().items()
         }
     return {scheme: url for scheme, url in proxies.items() if scheme in ("http", "https")}
+
+
+def ssl_context() -> ssl.SSLContext:
+    """urllib 用的 SSL 設定：系統憑證＋關閉嚴格模式（仍驗證憑證鏈與主機名稱）。"""
+    context = ssl.create_default_context()
+    context.verify_flags &= ~getattr(ssl, "VERIFY_X509_STRICT", 0)
+    return context
