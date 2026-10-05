@@ -44,6 +44,8 @@ def chart(symbol: str, ko: Pct = None, k1: Pct = None, k2: Pct = None, ki: Pct =
         history = data.get_history(yahoo_symbol)
     except data.SymbolNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except data.DataSourceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     ref = history.ref_candle
     # Yahoo 價格是 float32 轉來的（如 472.7799987），先去掉雜訊再算，避免臨界值進位錯誤。

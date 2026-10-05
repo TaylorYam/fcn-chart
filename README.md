@@ -14,6 +14,8 @@ FCN 標的快速作圖：輸入標的代號與 KO/K1/K2/KI 百分比，在 Tradi
 ### 公司電腦／公司網路
 
 - 公司網路常以自有根憑證檢查 HTTPS。`start.bat` 已設定 `UV_NATIVE_TLS=1`，程式抓行情時也會一併信任 Windows 憑證存放區，不需另外設定。
+- 抓不到資料時，畫面會顯示真正原因（例如「無法連線到 Yahoo：…」）；可雙擊 **`diagnose.bat`** 測試各種連線方式，結果存成 `diagnose.txt`，傳給維護者判斷。
+- 程式會使用環境變數或 Windows 網際網路設定中的 proxy（不支援 PAC 自動設定檔）。
 - 若仍出現 `invalid peer certificate` 或連不上 `pypi.org`、Yahoo，代表公司直接封鎖這些網站，需請 IT 開放：`pypi.org`、`files.pythonhosted.org`（第一次安裝套件）、`*.yahoo.com`（行情）、`unpkg.com`、`cdnjs.cloudflare.com`（圖表元件）、`*.tradingview.com`（公司 logo）。
 - 從 GitHub 下載 zip 解壓縮的版本不會自動更新，改版時需重新下載。
 

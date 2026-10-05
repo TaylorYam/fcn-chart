@@ -2,8 +2,17 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytest
+from yfinance import exceptions as yf_errors
 
-from fcn_chart.data import drop_unfinished_bar, exchange_name, to_candles
+from fcn_chart.data import (
+    DataSourceError,
+    SymbolNotFoundError,
+    download_daily,
+    drop_unfinished_bar,
+    exchange_name,
+    to_candles,
+)
 
 NY = "America/New_York"
 TOKYO = "Asia/Tokyo"
@@ -77,3 +86,34 @@ def test_exchange_name_maps_yahoo_codes_to_tradingview():
     assert exchange_name("NMS") == "NASDAQ"
     assert exchange_name("JPX") == "TSE"
     assert exchange_name("xyz") == "XYZ"
+
+
+class NotFound(OSError):
+    response = type("Response", (), {"status_code": 404})()
+
+
+class FakeTicker:
+    def __init__(self, exc):
+        self.exc = exc
+
+    def history(self, **kwargs):
+        raise self.exc
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected", "message"),
+    [
+        (yf_errors.YFPricesMissingError("ZZZZ", ""), SymbolNotFoundError, "查無資料"),
+        (yf_errors.YFTzMissingError("ZZZZ"), SymbolNotFoundError, "查無資料"),
+        (NotFound("HTTP Error 404"), SymbolNotFoundError, "查無資料"),
+        (yf_errors.YFRateLimitError(), DataSourceError, "限制查詢次數"),
+        (
+            OSError("curl: (60) SSL certificate problem"),
+            DataSourceError,
+            r"無法連線到 Yahoo：curl: \(60\)",
+        ),
+    ],
+)
+def test_download_daily_classifies_errors(exc, expected, message):
+    with pytest.raises(expected, match=message):
+        download_daily(FakeTicker(exc), "ZZZZ", "2026-01-01")
