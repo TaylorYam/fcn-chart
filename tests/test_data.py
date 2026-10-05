@@ -155,68 +155,60 @@ def test_parse_chart_without_result_is_not_found():
         parse_chart("ZZZZ", payload, at(NY, 2026, 10, 3))
 
 
-class FakeResponse:
-    def __init__(self, status_code, body=None):
-        self.status_code = status_code
-        self.body = body
-
-    def json(self):
-        if self.body is None:
-            raise ValueError("not json")
-        return self.body
-
-
-class FakeSession:
-    def __init__(self, outcome):
-        self.outcome = outcome
-        self.calls = []
-
-    def get(self, url, **kwargs):
-        self.calls.append((url, kwargs))
-        if isinstance(self.outcome, Exception):
-            raise self.outcome
-        return self.outcome
-
-
 @pytest.fixture
-def session(monkeypatch):
-    holder = {}
+def transports(monkeypatch):
+    """依序設定 curl_cffi 與 urllib 的結果：(status, body) 或例外。"""
+    calls = []
 
-    def use(outcome):
-        holder["session"] = FakeSession(outcome)
-        monkeypatch.setattr(data, "yahoo_session", lambda: holder["session"])
-        return holder["session"]
+    def use(curl, urllib_):
+        def make(name, outcome):
+            def get(url):
+                calls.append((name, url))
+                if isinstance(outcome, Exception):
+                    raise outcome
+                return outcome
+
+            return get
+
+        monkeypatch.setattr(data, "get_via_curl", make("curl", curl))
+        monkeypatch.setattr(data, "get_via_urllib", make("urllib", urllib_))
+        return calls
 
     return use
 
 
-START = at(NY, 2025, 9, 1)
-END = at(NY, 2026, 10, 5)
+OK = (200, b'{"chart": {}}')
 
 
-def test_request_chart_returns_json_and_quotes_symbol(session):
-    fake = session(FakeResponse(200, {"chart": {}}))
-    assert request_chart("BRK-B", START, END) == {"chart": {}}
-    url, kwargs = fake.calls[0]
-    assert url.endswith("/v8/finance/chart/BRK-B")
-    assert kwargs["params"]["interval"] == "1d"
+def test_request_chart_uses_curl_first_and_quotes_symbol(transports):
+    calls = transports(OK, AssertionError("should not be called"))
+    assert request_chart("BRK-B") == {"chart": {}}
+    assert calls == [("curl", "https://query1.finance.yahoo.com/v8/finance/chart/BRK-B")]
+
+
+@pytest.mark.parametrize("curl", [(429, b""), OSError("curl: (35) reset")])
+def test_request_chart_falls_back_to_urllib(transports, curl):
+    calls = transports(curl, OK)
+    assert request_chart("MSFT") == {"chart": {}}
+    assert [name for name, _ in calls] == ["curl", "urllib"]
 
 
 @pytest.mark.parametrize(
-    ("outcome", "expected", "message"),
+    ("curl", "urllib_", "expected", "message"),
     [
-        (FakeResponse(404), SymbolNotFoundError, "查無資料"),
-        (FakeResponse(429), DataSourceError, "限制查詢次數"),
-        (FakeResponse(503), DataSourceError, "HTTP 503"),
-        (FakeResponse(200, None), DataSourceError, "格式異常"),
+        ((404, b""), None, SymbolNotFoundError, "查無資料"),
+        ((503, b""), None, DataSourceError, "HTTP 503"),
+        ((200, b"<html>blocked</html>"), None, DataSourceError, "格式異常"),
+        ((429, b""), (429, b""), DataSourceError, "^Yahoo 暫時限制查詢次數，請稍後再試$"),
         (
             OSError("curl: (60) SSL certificate problem"),
+            (429, b""),
             DataSourceError,
-            r"無法連線到 Yahoo：curl: \(60\)",
+            r"無法連線到 Yahoo：curl: \(60\).*；Yahoo 暫時限制查詢次數",
         ),
     ],
 )
-def test_request_chart_classifies_errors(session, outcome, expected, message):
-    session(outcome)
+def test_request_chart_classifies_errors(transports, curl, urllib_, expected, message):
+    transports(curl, urllib_)
     with pytest.raises(expected, match=message):
-        request_chart("MSFT", START, END)
+        request_chart("MSFT")

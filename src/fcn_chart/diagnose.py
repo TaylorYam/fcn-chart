@@ -7,6 +7,7 @@
 import platform
 import sys
 import traceback
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
@@ -17,7 +18,9 @@ from curl_cffi import requests as curl_requests
 
 from fcn_chart import data, network
 
-YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart/MSFT?range=5d&interval=1d"
+CHART = "https://query1.finance.yahoo.com/v8/finance/chart/MSFT"
+YAHOO_URL = f"{CHART}?range=5d&interval=1d"
+YAHOO_PERIOD_URL = f"{CHART}?period1=1727740800&period2=1759276800&interval=1d"
 TV_URL = "https://symbol-search.tradingview.com/symbol_search/v3/?text=MSFT&search_type=stocks"
 CDN_URL = (
     "https://unpkg.com/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js"
@@ -47,16 +50,33 @@ def check(name: str, func: Callable[[], str]) -> bool:
         return False
 
 
+def describe(status: int, body: bytes) -> str:
+    """非 200 視為失敗，附上回應開頭方便判斷（例如 Yahoo 的錯誤訊息或公司攔截頁）。"""
+    if status != 200:
+        snippet = " ".join(body[:200].decode("utf-8", "replace").split())
+        raise RuntimeError(f"HTTP {status}｜{snippet}")
+    return f"HTTP 200，{len(body)} bytes"
+
+
 def via_urllib(url: str) -> str:
     request = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(request, timeout=15, context=network.ssl_context()) as response:
-        return f"HTTP {response.status}，{len(response.read())} bytes"
+    try:
+        with urllib.request.urlopen(request, timeout=15, context=network.ssl_context()) as response:
+            return describe(response.status, response.read())
+    except urllib.error.HTTPError as exc:
+        return describe(exc.code, exc.read())
 
 
-def via_curl(url: str, verify, proxies) -> str:
+def via_curl(url: str, verify, proxies, headers: dict | None = UA) -> str:
+    """headers=None 表示不覆寫，沿用 curl_cffi 模擬的完整 Chrome User-Agent。"""
     session = curl_requests.Session(impersonate="chrome", verify=verify, proxies=proxies or None)
-    response = session.get(url, headers=UA, timeout=15)
-    return f"HTTP {response.status_code}，{len(response.content)} bytes"
+    response = session.get(url, headers=headers, timeout=15)
+    return describe(response.status_code, response.content)
+
+
+def via_program(transport) -> str:
+    url = data.CHART_URL.format(symbol="MSFT")
+    return describe(*transport(url))
 
 
 def windows_pac() -> str:
@@ -96,6 +116,10 @@ def main() -> None:
     check("curl_cffi（只用 certifi）", lambda: via_curl(YAHOO_URL, certifi.where(), proxies))
     if proxies:
         check("curl_cffi（合併憑證、不經 proxy）", lambda: via_curl(YAHOO_URL, bundle, None))
+    check("對照：完整 Chrome User-Agent", lambda: via_curl(YAHOO_URL, bundle, proxies, None))
+    check("對照：period1/period2 參數", lambda: via_curl(YAHOO_PERIOD_URL, bundle, proxies))
+    check("程式請求（curl_cffi）", lambda: via_program(data.get_via_curl))
+    check("程式請求（urllib 備援）", lambda: via_program(data.get_via_urllib))
     check("程式實際抓 MSFT 日K", lambda: f"{len(data.fetch_history('MSFT').candles)} 根K棒")
     out()
     out("-- 其他網站 --")
