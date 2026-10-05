@@ -1,0 +1,138 @@
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #d1d5db;
+  --accent: #2563eb;
+  --danger: #dc2626;
+  --font: "Segoe UI", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+}
+
+.toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+}
+
+.toolbar h1 { margin: 0 0 8px; font-size: 18px; }
+
+/* 視窗夠寬才把輸入列固定在上方，窄視窗時避免蓋住圖表。 */
+@media (min-width: 1000px) and (min-height: 700px) {
+  .toolbar { position: sticky; top: 0; z-index: 10; }
+}
+
+@media (max-width: 640px) {
+  .toolbar, main { padding-left: 16px; padding-right: 16px; }
+  .field.symbols, .field.symbols input { width: 100%; }
+  .card-foot { flex-wrap: wrap; }
+}
+
+form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field span { font-size: 12px; color: var(--muted); }
+.field input {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+}
+.field.symbols input { width: 280px; }
+.field.pct input { width: 80px; }
+
+button {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.hint { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 24px 40px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.card-head .ticker { font-size: 18px; }
+.card-head .ref { font-weight: 600; white-space: nowrap; }
+
+/* 圖表與匯出圖同為 16:9 */
+.chart-wrap { position: relative; }
+.chart { width: 100%; aspect-ratio: 16 / 9; }
+
+/* TradingView 左上角圖例 */
+.legend {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  z-index: 4;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif;
+  font-size: 13px;
+  color: #131722;
+}
+.legend-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; line-height: 22px; }
+.legend-row span { display: inline-flex; gap: 2px; }
+.legend-row b { font-weight: 400; color: var(--legend-color); }
+.legend-title { font-weight: 500; margin-right: 2px; }
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+.ranges { display: flex; gap: 4px; }
+.ranges button { height: 28px; padding: 0 10px; font-size: 12px; }
+.ranges button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.actions { display: flex; gap: 8px; margin-left: auto; }
+
+.status { margin: 8px 0 0; font-size: 12px; color: var(--muted); min-height: 1em; }
+.status.error { color: var(--danger); }
+
+.card.failed .chart,
+.card.failed .card-foot { display: none; }
+.card.loading .chart { opacity: 0.4; }

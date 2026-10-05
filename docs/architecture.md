@@ -1,35 +1,47 @@
 # Architecture Overview
 
-Keep this document aligned with the current system. Describe the important boundaries and reasons behind them; link to code for details that are easy to inspect there.
-
 ## Purpose and scope
 
-Describe the problem this project solves, its users, and what is outside its scope.
+FCN Chart 是本機執行的小工具：輸入美股／日股代號與 KO/K/KI 百分比，產生標有三條水平線的日K線圖，下載 PNG 或複製圖片貼進 PPT。
+
+不在範圍內：台股／港股、Step-down 等自訂額外線、與 `fcn-wt`／比價明細串接、多人或雲端部署。
 
 ## System context
 
-List the main external systems, users, and data entering or leaving the project.
+```
+使用者瀏覽器 ──HTTP──▶ 本機 FastAPI (127.0.0.1:8765) ──yfinance──▶ Yahoo Finance
+     │
+     └──CDN──▶ unpkg (Lightweight Charts) / cdnjs (JSZip)
+```
 
 ## Components and boundaries
 
-Describe the major components, their responsibilities, and how they communicate. Add a diagram when it makes the boundaries easier to understand.
+| 模組 | 職責 |
+| --- | --- |
+| `src/fcn_chart/symbols.py` | 使用者輸入 → Yahoo 代號（4 碼數字開頭補 `.T`；`BRK.B` → `BRK-B`） |
+| `src/fcn_chart/data.py` | 抓約 400 天日K、排除交易所當日未收盤（收盤後 20 分鐘緩衝）的K棒 |
+| `src/fcn_chart/levels.py` | 期初價 × % → 價位；美股 2 位、日股整數，四捨五入 |
+| `src/fcn_chart/app.py` | `GET /` 頁面、`GET /api/chart?symbol=&ko=&k=&ki=` |
+| `src/fcn_chart/static/` | TradingView 樣式作圖（圖例、成交量、TV logo）、區間切換、匯出 1600×900 PNG、複製、zip |
+
+價位計算在後端完成並有單元測試；前端只負責呈現與匯出。
 
 ## Data and state
 
-Describe important data entities, persistence, ownership, retention, and any runtime data that must remain local or generated.
+無資料庫、無持久化。每次請求即時向 Yahoo 抓資料。瀏覽器 `localStorage` 只記住上次輸入的代號與百分比。
 
 ## Runtime and deployment
 
-Record the supported environments, deployment shape, operational dependencies, and how configuration is supplied. Keep credentials out of this document.
+- 本機 Windows，Python ≥ 3.11，以 `uv` 管理相依套件。
+- 啟動：雙擊 `start.bat`（= `uv run fcn-chart`），自動開啟瀏覽器。
+- 連接埠：環境變數 `APP_PORT`，預設 8765；只綁定 127.0.0.1。
 
 ## Quality attributes and constraints
 
-List the requirements that shape design choices, such as security, availability, performance, privacy, compatibility, and cost.
+- 正確性：期初價必須是已收盤日K；價位四捨五入一致（避開 float 雜訊與銀行家捨入）。
+- 需要網路連線（Yahoo、CDN）。
+- 「複製圖片」需 Chromium 系瀏覽器（Edge／Chrome）且由使用者點擊觸發。
 
 ## Important decisions
 
-Link to accepted architecture decision records under `docs/adr/`.
-
-## Updating this document
-
-Update this overview when a change alters system boundaries, data flow, deployment, or an important constraint. Record durable choices in an ADR and link them here.
+- [0001: 以 yfinance 資料搭配 TradingView Lightweight Charts 作圖](adr/0001-lightweight-charts-with-yfinance.md)

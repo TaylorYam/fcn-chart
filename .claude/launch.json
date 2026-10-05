@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fcn-chart",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "uvicorn", "fcn_chart.app:app", "--host", "127.0.0.1", "--port", "8765"],
+      "port": 8765
+    }
+  ]
+}
